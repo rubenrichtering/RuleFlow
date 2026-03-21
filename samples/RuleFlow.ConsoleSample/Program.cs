@@ -11,7 +11,8 @@ var playgroundRunner = new ScenarioRunner()
     .AddScenario(new GroupScenario())
     .AddScenario(new ExplainabilityScenario())
     .AddScenario(new AsyncScenario())
-    .AddScenario(new ContextScenario());
+    .AddScenario(new ContextScenario())
+    .AddScenario(new MetadataScenario());
 
 // Run the interactive playground
 await playgroundRunner.RunInteractive();

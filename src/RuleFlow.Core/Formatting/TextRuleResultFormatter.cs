@@ -14,8 +14,21 @@ public class TextRuleResultFormatter : IRuleResultFormatter
         {
             var status = exec.Matched ? "✔" : "✖";
 
-            sb.AppendLine($"{status} {exec.RuleName}" +
-                          (exec.Reason != null ? $" ({exec.Reason})" : ""));
+            var output = $"{status} {exec.RuleName}";
+
+            if (exec.Reason != null)
+            {
+                output += $" ({exec.Reason})";
+            }
+
+            // Add metadata if available
+            if (exec.Metadata.Count > 0)
+            {
+                var metadataStr = string.Join(", ", exec.Metadata.Select(m => $"{m.Key}={m.Value}"));
+                output += $" [{metadataStr}]";
+            }
+
+            sb.AppendLine(output);
         }
 
         return sb.ToString();

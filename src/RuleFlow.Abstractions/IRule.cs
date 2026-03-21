@@ -6,6 +6,7 @@ public interface IRule<T>
     string? Reason { get; }
     int Priority { get; }
     bool StopProcessing { get; }
+    IReadOnlyDictionary<string, object?> Metadata { get; }
 
     bool Evaluate(T input, IRuleContext context);
     Task<bool> EvaluateAsync(T input, IRuleContext context);

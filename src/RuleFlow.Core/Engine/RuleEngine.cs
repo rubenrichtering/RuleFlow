@@ -88,6 +88,12 @@ public class RuleEngine : IRuleEngine
                 GroupName = groupPath
             };
 
+            // Copy metadata from rule to execution
+            foreach (var kvp in rule.Metadata)
+            {
+                execution.Metadata[kvp.Key] = kvp.Value;
+            }
+
             result.Executions.Add(execution);
 
             // Create node for this rule
@@ -167,6 +173,12 @@ public class RuleEngine : IRuleEngine
                 Priority = rule.Priority,
                 GroupName = groupPath
             };
+
+            // Copy metadata from rule to execution
+            foreach (var kvp in rule.Metadata)
+            {
+                execution.Metadata[kvp.Key] = kvp.Value;
+            }
 
             result.Executions.Add(execution);
 

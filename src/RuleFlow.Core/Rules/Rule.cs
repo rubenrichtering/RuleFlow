@@ -13,6 +13,9 @@ public class Rule<T> : IRule<T>
     private bool _stopProcessing = false;
     public bool StopProcessing => _stopProcessing;
 
+    private Dictionary<string, object?> _metadata = new();
+    public IReadOnlyDictionary<string, object?> Metadata => _metadata;
+
     // Sync variants
     private Func<T, bool> _condition = _ => true;
     private Func<T, IRuleContext, bool>? _conditionWithContext;
@@ -112,6 +115,12 @@ public class Rule<T> : IRule<T>
     public Rule<T> StopIfMatched()
     {
         _stopProcessing = true;
+        return this;
+    }
+
+    public Rule<T> WithMetadata(string key, object? value)
+    {
+        _metadata[key] = value;
         return this;
     }
 
