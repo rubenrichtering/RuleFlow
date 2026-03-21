@@ -49,10 +49,20 @@ RuleFlow/
 - Tests behavior, not implementation details
 - Focuses on rule execution, ordering, and results
 
+### RuleFlow.ConsoleSample - Playground Scenarios
+
+- Add a new scenario for each major feature or change
+- Used for prototyping and demonstrating features
+- Should be kept clean and relevant
+- Remove outdated scenarios and keep examples focused on current capabilities
+- Do not add complex or long-running scenarios without explicit request
+
 ### Documentation
-- Keep all `.md` files up to date
+
+- Keep all `README.md` files up to date
 - Ensure documentation reflects current codebase state
 - Update examples and API descriptions as needed
+
 ---
 
 ## 🧠 Core Concepts
