@@ -26,17 +26,25 @@ public class RuleEngine : IRuleEngine
         {
             var matched = rule.Evaluate(input, context);
 
-            result.Executions.Add(new RuleExecution
+            var execution = new RuleExecution
             {
                 RuleName = rule.Name,
                 Matched = matched,
                 Reason = rule.Reason,
                 Priority = rule.Priority
-            });
+            };
+            
+            result.Executions.Add(execution);
 
             if (matched)
             {
                 rule.Execute(input, context);
+                
+                if (rule.StopProcessing)
+                {
+                    execution.StoppedProcessing = true;
+                    break;
+                }
             }
         }
 

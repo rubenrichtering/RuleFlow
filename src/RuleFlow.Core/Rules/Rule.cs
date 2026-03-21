@@ -9,6 +9,9 @@ public class Rule<T> : IRule<T>
     
     private int _priority = 0;
     public int Priority => _priority;
+    
+    private bool _stopProcessing = false;
+    public bool StopProcessing => _stopProcessing;
 
     private Func<T, bool> _condition = _ => true;
     private Action<T>? _action;
@@ -44,6 +47,12 @@ public class Rule<T> : IRule<T>
     public Rule<T> WithPriority(int priority)
     {
         _priority = priority;
+        return this;
+    }
+
+    public Rule<T> StopIfMatched()
+    {
+        _stopProcessing = true;
         return this;
     }
 

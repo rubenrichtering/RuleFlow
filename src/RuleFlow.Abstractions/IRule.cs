@@ -5,6 +5,7 @@ public interface IRule<T>
     string Name { get; }
     string? Reason { get; }
     int Priority { get; }
+    bool StopProcessing { get; }
 
     bool Evaluate(T input, IRuleContext context);
 

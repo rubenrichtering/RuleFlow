@@ -6,6 +6,7 @@ public class RuleExecution
     public bool Matched { get; set; }
     public string? Reason { get; set; }
     public int Priority { get; set; }
+    public bool StoppedProcessing { get; set; }
 
     public DateTime ExecutedAt { get; set; } = DateTime.UtcNow;
 
