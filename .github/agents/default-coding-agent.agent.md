@@ -49,6 +49,10 @@ RuleFlow/
 - Tests behavior, not implementation details
 - Focuses on rule execution, ordering, and results
 
+### Documentation
+- Keep all `.md` files up to date
+- Ensure documentation reflects current codebase state
+- Update examples and API descriptions as needed
 ---
 
 ## 🧠 Core Concepts
