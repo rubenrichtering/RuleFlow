@@ -15,6 +15,9 @@ public class Rule<T> : IRule<T>
 
     private Func<T, bool> _condition = _ => true;
     private Action<T>? _action;
+    
+    private Func<T, Task<bool>>? _asyncCondition;
+    private Func<T, Task>? _asyncAction;
 
     private Rule(string name)
     {
@@ -32,9 +35,21 @@ public class Rule<T> : IRule<T>
         return this;
     }
 
+    public Rule<T> WhenAsync(Func<T, Task<bool>> condition)
+    {
+        _asyncCondition = condition ?? throw new ArgumentNullException(nameof(condition));
+        return this;
+    }
+
     public Rule<T> Then(Action<T> action)
     {
         _action = action ?? throw new ArgumentNullException(nameof(action));
+        return this;
+    }
+
+    public Rule<T> ThenAsync(Func<T, Task> action)
+    {
+        _asyncAction = action ?? throw new ArgumentNullException(nameof(action));
         return this;
     }
 
@@ -57,7 +72,7 @@ public class Rule<T> : IRule<T>
     }
 
 
-    // Interface implementatie
+    // Sync interface implementation
 
     public bool Evaluate(T input, IRuleContext context)
     {
@@ -67,5 +82,28 @@ public class Rule<T> : IRule<T>
     public void Execute(T input, IRuleContext context)
     {
         _action?.Invoke(input);
+    }
+
+    // Async interface implementation
+
+    public async Task<bool> EvaluateAsync(T input, IRuleContext context)
+    {
+        if (_asyncCondition != null)
+        {
+            return await _asyncCondition(input);
+        }
+        return _condition(input);
+    }
+
+    public async Task ExecuteAsync(T input, IRuleContext context)
+    {
+        if (_asyncAction != null)
+        {
+            await _asyncAction(input);
+        }
+        else
+        {
+            _action?.Invoke(input);
+        }
     }
 }
