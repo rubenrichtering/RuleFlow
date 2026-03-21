@@ -14,7 +14,7 @@ public class RuleEngine : IRuleEngine
         if (input == null) throw new ArgumentNullException(nameof(input));
         if (ruleSet == null) throw new ArgumentNullException(nameof(ruleSet));
 
-        context ??= DefaultRuleContext.Instance;
+        context ??= new RuleContext();
 
         var result = new RuleResult();
 
@@ -42,7 +42,7 @@ public class RuleEngine : IRuleEngine
         if (input == null) throw new ArgumentNullException(nameof(input));
         if (ruleSet == null) throw new ArgumentNullException(nameof(ruleSet));
 
-        context ??= DefaultRuleContext.Instance;
+        context ??= new RuleContext();
 
         var result = new RuleResult();
 

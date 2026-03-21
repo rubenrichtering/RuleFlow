@@ -99,7 +99,7 @@ public class RuleCreationTests
         var rule = Rule<TestObject>.For("Test Rule");
 
         // Act & Assert
-        Should.Throw<ArgumentNullException>(() => rule.When(null!));
+        Should.Throw<ArgumentNullException>(() => rule.When((Func<TestObject, bool>)null!));
     }
 
     [Fact]
@@ -109,7 +109,7 @@ public class RuleCreationTests
         var rule = Rule<TestObject>.For("Test Rule");
 
         // Act & Assert
-        Should.Throw<ArgumentNullException>(() => rule.Then(null!));
+        Should.Throw<ArgumentNullException>(() => rule.Then((Action<TestObject>)null!));
     }
 
     [Fact]
