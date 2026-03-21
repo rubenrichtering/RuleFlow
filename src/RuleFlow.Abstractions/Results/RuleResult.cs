@@ -7,6 +7,11 @@ public class RuleResult
 {
     public List<RuleExecution> Executions { get; } = new();
 
+    /// <summary>
+    /// Root node of the execution tree.
+    /// </summary>
+    public RuleExecutionNode? Root { get; set; }
+
     public IEnumerable<string> AppliedRules =>
         Executions.Where(e => e.Matched).Select(e => e.RuleName);
 
