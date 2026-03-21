@@ -19,6 +19,11 @@ public class Rule<T> : IRule<T>
     // Sync variants
     private Func<T, bool> _condition = _ => true;
     private Func<T, IRuleContext, bool>? _conditionWithContext;
+    
+    // Action chain: supports multiple Then/ThenIf steps
+    private List<ActionStep<T>> _actionSteps = new();
+    
+    // Legacy support: old single-action fields (for backward compatibility)
     private Action<T>? _action;
     private Action<T, IRuleContext>? _actionWithContext;
     
@@ -70,31 +75,185 @@ public class Rule<T> : IRule<T>
 
     // ============ Sync Action Overloads ============
 
+    /// <summary>
+    /// Adds an unconditional action step to the rule.
+    /// The action is always executed if the rule matches.
+    /// </summary>
     public Rule<T> Then(Action<T> action)
     {
-        _action = action ?? throw new ArgumentNullException(nameof(action));
-        _actionWithContext = null; // Clear context version
+        if (action == null) throw new ArgumentNullException(nameof(action));
+        
+        // Add to action chain
+        _actionSteps.Add(new ActionStep<T>
+        {
+            ExecuteAsync = (input, context) =>
+            {
+                action(input);
+                return Task.CompletedTask;
+            },
+            PredicateAsync = null,
+            IsAsync = false,
+            Label = "Then"
+        });
+
         return this;
     }
 
+    /// <summary>
+    /// Adds an unconditional action step to the rule with context.
+    /// The action is always executed if the rule matches.
+    /// </summary>
     public Rule<T> Then(Action<T, IRuleContext> action)
     {
-        _actionWithContext = action ?? throw new ArgumentNullException(nameof(action));
+        if (action == null) throw new ArgumentNullException(nameof(action));
+        
+        // Add to action chain
+        _actionSteps.Add(new ActionStep<T>
+        {
+            ExecuteAsync = (input, context) =>
+            {
+                action(input, context);
+                return Task.CompletedTask;
+            },
+            PredicateAsync = null,
+            IsAsync = false,
+            Label = "Then"
+        });
+
+        return this;
+    }
+
+    /// <summary>
+    /// Adds a conditional action step to the rule.
+    /// The action is only executed if both the rule matches AND the predicate returns true.
+    /// </summary>
+    public Rule<T> ThenIf(Func<T, bool> predicate, Action<T> action)
+    {
+        if (predicate == null) throw new ArgumentNullException(nameof(predicate));
+        if (action == null) throw new ArgumentNullException(nameof(action));
+        
+        // Add to action chain
+        _actionSteps.Add(new ActionStep<T>
+        {
+            ExecuteAsync = (input, context) =>
+            {
+                action(input);
+                return Task.CompletedTask;
+            },
+            PredicateAsync = (input, context) => Task.FromResult(predicate(input)),
+            IsAsync = false,
+            Label = "ThenIf"
+        });
+
+        return this;
+    }
+
+    /// <summary>
+    /// Adds a conditional action step to the rule with context.
+    /// The action is only executed if both the rule matches AND the predicate returns true.
+    /// </summary>
+    public Rule<T> ThenIf(Func<T, IRuleContext, bool> predicate, Action<T, IRuleContext> action)
+    {
+        if (predicate == null) throw new ArgumentNullException(nameof(predicate));
+        if (action == null) throw new ArgumentNullException(nameof(action));
+        
+        // Add to action chain
+        _actionSteps.Add(new ActionStep<T>
+        {
+            ExecuteAsync = (input, context) =>
+            {
+                action(input, context);
+                return Task.CompletedTask;
+            },
+            PredicateAsync = (input, context) => Task.FromResult(predicate(input, context)),
+            IsAsync = false,
+            Label = "ThenIf"
+        });
+
         return this;
     }
 
     // ============ Async Action Overloads ============
 
+    /// <summary>
+    /// Adds an async unconditional action step to the rule.
+    /// The action is always executed if the rule matches.
+    /// </summary>
     public Rule<T> ThenAsync(Func<T, Task> action)
     {
-        _asyncAction = action ?? throw new ArgumentNullException(nameof(action));
-        _asyncActionWithContext = null; // Clear context version
+        if (action == null) throw new ArgumentNullException(nameof(action));
+        
+        // Add to action chain
+        _actionSteps.Add(new ActionStep<T>
+        {
+            ExecuteAsync = (input, context) => action(input),
+            PredicateAsync = null,
+            IsAsync = true,
+            Label = "ThenAsync"
+        });
+
         return this;
     }
 
+    /// <summary>
+    /// Adds an async unconditional action step to the rule with context.
+    /// The action is always executed if the rule matches.
+    /// </summary>
     public Rule<T> ThenAsync(Func<T, IRuleContext, Task> action)
     {
-        _asyncActionWithContext = action ?? throw new ArgumentNullException(nameof(action));
+        if (action == null) throw new ArgumentNullException(nameof(action));
+        
+        // Add to action chain
+        _actionSteps.Add(new ActionStep<T>
+        {
+            ExecuteAsync = action,
+            PredicateAsync = null,
+            IsAsync = true,
+            Label = "ThenAsync"
+        });
+
+        return this;
+    }
+
+    /// <summary>
+    /// Adds an async conditional action step to the rule.
+    /// The action is only executed if both the rule matches AND the predicate returns true (async evaluation).
+    /// </summary>
+    public Rule<T> ThenIfAsync(Func<T, Task<bool>> predicate, Func<T, Task> action)
+    {
+        if (predicate == null) throw new ArgumentNullException(nameof(predicate));
+        if (action == null) throw new ArgumentNullException(nameof(action));
+        
+        // Add to action chain
+        _actionSteps.Add(new ActionStep<T>
+        {
+            ExecuteAsync = (input, context) => action(input),
+            PredicateAsync = (input, context) => predicate(input),
+            IsAsync = true,
+            Label = "ThenIfAsync"
+        });
+
+        return this;
+    }
+
+    /// <summary>
+    /// Adds an async conditional action step to the rule with context.
+    /// The action is only executed if both the rule matches AND the predicate returns true (async evaluation).
+    /// </summary>
+    public Rule<T> ThenIfAsync(Func<T, IRuleContext, Task<bool>> predicate, Func<T, IRuleContext, Task> action)
+    {
+        if (predicate == null) throw new ArgumentNullException(nameof(predicate));
+        if (action == null) throw new ArgumentNullException(nameof(action));
+        
+        // Add to action chain
+        _actionSteps.Add(new ActionStep<T>
+        {
+            ExecuteAsync = action,
+            PredicateAsync = predicate,
+            IsAsync = true,
+            Label = "ThenIfAsync"
+        });
+
         return this;
     }
 
@@ -144,24 +303,6 @@ public class Rule<T> : IRule<T>
     }
 
     /// <summary>
-    /// Executes the rule action against the input and context.
-    /// Priority order:
-    /// 1. Context-based sync action
-    /// 2. Sync action
-    /// </summary>
-    public void Execute(T input, IRuleContext context)
-    {
-        if (_actionWithContext != null)
-        {
-            _actionWithContext(input, context);
-        }
-        else
-        {
-            _action?.Invoke(input);
-        }
-    }
-
-    /// <summary>
     /// Asynchronously evaluates the rule condition against the input and context.
     /// Priority order:
     /// 1. Context-based async condition
@@ -187,30 +328,102 @@ public class Rule<T> : IRule<T>
     }
 
     /// <summary>
-    /// Asynchronously executes the rule action against the input and context.
-    /// Priority order:
-    /// 1. Context-based async action
-    /// 2. Async action
-    /// 3. Context-based sync action
-    /// 4. Sync action
+    /// Executes the rule action(s) against the input and context.
+    /// If multiple action steps are defined, executes them in order.
+    /// If no steps are defined, falls back to legacy single-action fields.
     /// </summary>
-    public async Task ExecuteAsync(T input, IRuleContext context)
+    public void Execute(T input, IRuleContext context)
     {
-        if (_asyncActionWithContext != null)
+        // If any action steps are defined, execute them
+        if (_actionSteps.Count > 0)
         {
-            await _asyncActionWithContext(input, context);
-        }
-        else if (_asyncAction != null)
-        {
-            await _asyncAction(input);
-        }
-        else if (_actionWithContext != null)
-        {
-            _actionWithContext(input, context);
+            foreach (var step in _actionSteps)
+            {
+                // Execute conditionally if predicate is defined
+                if (step.PredicateAsync == null)
+                {
+                    // Unconditional step - always execute
+                    // For sync-only steps, run the async task synchronously
+                    step.ExecuteAsync(input, context).GetAwaiter().GetResult();
+                }
+                else
+                {
+                    // Conditional step - check predicate first
+                    bool predicatePassed = step.PredicateAsync(input, context).GetAwaiter().GetResult();
+                    if (predicatePassed)
+                    {
+                        step.ExecuteAsync(input, context).GetAwaiter().GetResult();
+                    }
+                }
+            }
         }
         else
         {
-            _action?.Invoke(input);
+            // Backward compatibility: fall back to legacy single-action support
+            if (_actionWithContext != null)
+            {
+                _actionWithContext(input, context);
+            }
+            else
+            {
+                _action?.Invoke(input);
+            }
         }
     }
+
+    /// <summary>
+    /// Asynchronously executes the rule action(s) against the input and context.
+    /// If multiple action steps are defined, executes them in order (awaiting each).
+    /// If no steps are defined, falls back to legacy single-action fields.
+    /// </summary>
+    public async Task ExecuteAsync(T input, IRuleContext context)
+    {
+        // If any action steps are defined, execute them
+        if (_actionSteps.Count > 0)
+        {
+            foreach (var step in _actionSteps)
+            {
+                // Execute conditionally if predicate is defined
+                if (step.PredicateAsync == null)
+                {
+                    // Unconditional step - always execute
+                    await step.ExecuteAsync(input, context);
+                }
+                else
+                {
+                    // Conditional step - check predicate first
+                    bool predicatePassed = await step.PredicateAsync(input, context);
+                    if (predicatePassed)
+                    {
+                        await step.ExecuteAsync(input, context);
+                    }
+                }
+            }
+        }
+        else
+        {
+            // Backward compatibility: fall back to legacy single-action support
+            if (_asyncActionWithContext != null)
+            {
+                await _asyncActionWithContext(input, context);
+            }
+            else if (_asyncAction != null)
+            {
+                await _asyncAction(input);
+            }
+            else if (_actionWithContext != null)
+            {
+                _actionWithContext(input, context);
+            }
+            else
+            {
+                _action?.Invoke(input);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Returns the list of action steps for debugging/introspection.
+    /// </summary>
+    internal IReadOnlyList<ActionStep<T>> GetActionSteps() => _actionSteps.AsReadOnly();
 }

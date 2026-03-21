@@ -9,4 +9,12 @@ public class Order
     public bool PremiumShipping { get; set; }
     public bool StandardShipping { get; set; }
     public bool RequiresApproval { get; set; }
+    public bool LogProcessed { get; set; }
+    public Customer? Customer { get; set; }
+}
+
+public class Customer
+{
+    public string Name { get; set; } = "";
+    public bool IsPremium { get; set; }
 }

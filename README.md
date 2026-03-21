@@ -115,7 +115,17 @@ RuleFlow focuses on:
 - ✅ Rule groups
 - 🔲 Rule persistence (database)
 - 🔲 Dynamic rule compilation
-- 🔲 ASP.NET Core integration
+- 🔲 Execution Options / Modes  
+   - Partial execution  
+   - Scenario-based evaluation
+- 🔲 Persistence Layer  
+   - DB storage  
+   - Versioning / Audit trail
+- 🔲 ASP.NET Integration  
+   - services.AddRuleFlow()
+- 🔲 Performance Optimization  
+   - Compiled expressions  
+   - Caching rules
 
 ## 🤝 Contributing
 
