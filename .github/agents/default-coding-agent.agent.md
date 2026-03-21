@@ -57,6 +57,21 @@ RuleFlow/
 - Remove outdated scenarios and keep examples focused on current capabilities
 - Do not add complex or long-running scenarios without explicit request
 
+### Test Helpers
+
+The project may include custom test helper extensions (e.g. RuleResult assertions).
+
+When writing tests:
+
+- Prefer using test helpers over raw assertions when available
+- Keep helpers simple and readable
+- Do not introduce heavy abstractions
+
+Test helpers must:
+- Improve readability
+- Not hide important behavior
+- Remain optional (tests should still be understandable without them)
+
 ### Documentation
 
 - Keep all `README.md` files up to date

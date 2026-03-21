@@ -20,18 +20,48 @@ RuleFlow.Core.Tests/
 ├─ Engine/ # Tests for RuleEngine behavior
 ├─ Rules/ # Tests for Rule and RuleSet
 ├─ Explainability/ # Tests for RuleResult and Explain methods
+├─ Helpers/ # Test helper extensions (RuleResultAssertions)
 └─ RuleFlow.Core.Tests.csproj
 
+
+---
+
+## Test Helpers
+
+The `Helpers/RuleResultAssertions.cs` file provides extension methods to improve test readability and reduce repetition.
+
+Instead of:
+```csharp
+result.AppliedRules.ShouldContain("High amount");
+result.AppliedRules.ShouldNotContain("Low amount");
+```
+
+Use:
+```csharp
+result.ShouldHaveMatched("High amount");
+result.ShouldNotHaveMatched("Low amount");
+result.ShouldHaveExecuted("Rule Name");
+result.ShouldHaveMatchedRules(2);
+```
+
+**Available helpers:**
+- `ShouldHaveMatched(ruleName)` – Assert a rule matched
+- `ShouldNotHaveMatched(ruleName)` – Assert a rule did not match
+- `ShouldHaveExecuted(ruleName)` – Assert a rule was executed
+- `ShouldNotHaveExecuted(ruleName)` – Assert a rule was not executed
+- `ShouldHaveMatchedRules(count)` – Assert count of matched rules
+- `ShouldHaveExecutedRules(count)` – Assert count of executed rules
 
 ---
 
 ## Guidelines
 
 - Tests focus on observable behavior, not internal implementation.
+- Use test helpers from `RuleFlow.Core.Tests.Helpers` for `RuleResult` assertions.
 - Use `Shouldly` for assertions:
 
 ```csharp
-result.AppliedRules.ShouldContain("High amount");
+result.ShouldHaveMatched("High amount");
 order.RequiresApproval.ShouldBeTrue();
 ```
 
