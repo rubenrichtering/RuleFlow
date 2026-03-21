@@ -18,10 +18,23 @@ public class RuleEngine : IRuleEngine
 
         var result = new RuleResult();
 
+        EvaluateRuleSet(input, ruleSet, context, result, groupName: null);
+
+        return result;
+    }
+
+    private void EvaluateRuleSet<T>(
+        T input,
+        IRuleSet<T> ruleSet,
+        IRuleContext context,
+        RuleResult result,
+        string? groupName = null)
+    {
         var orderedRules = ruleSet.Rules
             .OrderByDescending(r => r.Priority)
             .ToList();
 
+        // Evaluate rules in current RuleSet
         foreach (var rule in orderedRules)
         {
             var matched = rule.Evaluate(input, context);
@@ -31,23 +44,34 @@ public class RuleEngine : IRuleEngine
                 RuleName = rule.Name,
                 Matched = matched,
                 Reason = rule.Reason,
-                Priority = rule.Priority
+                Priority = rule.Priority,
+                GroupName = groupName
             };
-            
+
             result.Executions.Add(execution);
 
             if (matched)
             {
                 rule.Execute(input, context);
-                
+
                 if (rule.StopProcessing)
                 {
                     execution.StoppedProcessing = true;
-                    break;
+                    return; // Stop entire execution (groups included)
                 }
             }
         }
 
-        return result;
+        // Evaluate groups in insertion order
+        foreach (var group in ruleSet.Groups)
+        {
+            EvaluateRuleSet(input, group, context, result, groupName: group.Name);
+
+            // Check if any execution in the result has StoppedProcessing set (from nested evaluation)
+            if (result.Executions.Any(e => e.StoppedProcessing))
+            {
+                return; // Stop entire execution
+            }
+        }
     }
 }

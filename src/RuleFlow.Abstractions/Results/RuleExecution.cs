@@ -7,6 +7,7 @@ public class RuleExecution
     public string? Reason { get; set; }
     public int Priority { get; set; }
     public bool StoppedProcessing { get; set; }
+    public string? GroupName { get; set; }
 
     public DateTime ExecutedAt { get; set; } = DateTime.UtcNow;
 
