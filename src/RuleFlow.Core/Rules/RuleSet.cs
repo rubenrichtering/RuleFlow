@@ -1,3 +1,4 @@
+using System.Linq;
 using RuleFlow.Abstractions;
 
 namespace RuleFlow.Core.Rules;
@@ -8,7 +9,12 @@ public class RuleSet<T> : IRuleSet<T>
 
     private readonly List<IRule<T>> _rules = new();
     private readonly List<IRuleSet<T>> _groups = new();
-    private List<IRule<T>>? _sortedRulesByPriority;
+
+    /// <summary>
+    /// Lazily built list of rules ordered by priority (descending), matching evaluation order.
+    /// Invalidated when rules are added.
+    /// </summary>
+    private List<IRule<T>>? _rulesSortedByPriorityDesc;
 
     private RuleSet(string name)
     {
@@ -25,8 +31,21 @@ public class RuleSet<T> : IRuleSet<T>
         if (rule == null) throw new ArgumentNullException(nameof(rule));
 
         _rules.Add(rule);
-        _sortedRulesByPriority = null; // Invalidate cache
+        _rulesSortedByPriorityDesc = null;
         return this;
+    }
+
+    /// <summary>
+    /// Returns rules in priority order (highest first), stable for equal priorities.
+    /// </summary>
+    internal IReadOnlyList<IRule<T>> GetRulesSortedByPriorityDescending()
+    {
+        if (_rulesSortedByPriorityDesc == null)
+        {
+            _rulesSortedByPriorityDesc = _rules.OrderByDescending(r => r.Priority).ToList();
+        }
+
+        return _rulesSortedByPriorityDesc;
     }
 
     public RuleSet<T> AddGroup(string name, Func<RuleSet<T>, RuleSet<T>> configure)
@@ -45,16 +64,4 @@ public class RuleSet<T> : IRuleSet<T>
     public IReadOnlyList<IRule<T>> Rules => _rules;
 
     public IReadOnlyList<IRuleSet<T>> Groups => _groups;
-
-    /// <summary>
-    /// Gets rules sorted by priority (descending), cached after first access.
-    /// </summary>
-    internal IReadOnlyList<IRule<T>> GetRulesByPriority()
-    {
-        if (_sortedRulesByPriority != null)
-            return _sortedRulesByPriority;
-
-        _sortedRulesByPriority = _rules.OrderByDescending(r => r.Priority).ToList();
-        return _sortedRulesByPriority;
-    }
 }

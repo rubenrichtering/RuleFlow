@@ -1,3 +1,4 @@
+using System.Linq;
 using RuleFlow.Abstractions;
 using RuleFlow.Abstractions.Execution;
 using RuleFlow.Abstractions.Results;
@@ -92,19 +93,21 @@ public class RuleEngine : IRuleEngine
         var result = new RuleResult();
         var executionState = new ExecutionState();
 
-        // Create root node for the RuleSet
-        var root = new RuleExecutionNode
+        RuleExecutionNode? root = null;
+        if (options.EnableExplainability)
         {
-            Name = ruleSet.Name,
-            Type = "Group",
-            Executed = true,
-            Priority = 0
-        };
+            root = new RuleExecutionNode
+            {
+                Name = ruleSet.Name,
+                Type = "Group",
+                Executed = true,
+                Priority = 0
+            };
+        }
 
         // Single unified execution pipeline
         await EvaluateInternalAsync(input, ruleSet, context, result, root, options, executionState, groupPath: null);
 
-        // Attach explainability tree if enabled
         if (options.EnableExplainability)
         {
             result.Root = root;
@@ -133,7 +136,7 @@ public class RuleEngine : IRuleEngine
         IRuleSet<T> ruleSet,
         IRuleContext context,
         RuleResult result,
-        RuleExecutionNode parentNode,
+        RuleExecutionNode? parentNode,
         RuleExecutionOptions<T> options,
         ExecutionState executionState,
         string? groupPath = null)
@@ -144,12 +147,12 @@ public class RuleEngine : IRuleEngine
             return; // Skip this group
         }
 
-        var orderedRules = ruleSet.Rules
-            .OrderByDescending(r => r.Priority);
+        var orderedRules = GetRulesSortedByPriorityDescending(ruleSet);
 
         // === EVALUATE RULES IN CURRENT RULESET ===
-        foreach (var rule in orderedRules)
+        for (var i = 0; i < orderedRules.Count; i++)
         {
+            var rule = orderedRules[i];
             // 1. Check metadata filter
             if (options.MetadataFilter != null && !options.MetadataFilter(rule))
             {
@@ -175,7 +178,7 @@ public class RuleEngine : IRuleEngine
                 result.Executions.Add(skippedExecution);
 
                 // Build explainability tree node for skipped rule
-                if (options.EnableExplainability)
+                if (options.EnableExplainability && parentNode != null)
                 {
                     var skippedRuleNode = new RuleExecutionNode
                     {
@@ -219,7 +222,7 @@ public class RuleEngine : IRuleEngine
             result.Executions.Add(execution);
 
             // 4. Build explainability tree
-            if (options.EnableExplainability)
+            if (options.EnableExplainability && parentNode != null)
             {
                 var ruleNode = new RuleExecutionNode
                 {
@@ -244,9 +247,17 @@ public class RuleEngine : IRuleEngine
             }
             else if (matched)
             {
-                // Explainability disabled, but still execute actions
-                var actionExecutions = await ExecuteActionsWithTrackingAsync(rule, input, context);
-                execution.Actions.AddRange(actionExecutions);
+                // Explainability disabled: run actions without per-step ActionExecution allocations.
+                // Non-Rule<T> IRule implementations follow the same path as before (tracking only).
+                if (rule is Rule<T>)
+                {
+                    await rule.ExecuteAsync(input, context);
+                }
+                else
+                {
+                    var actionExecutions = await ExecuteActionsWithTrackingAsync(rule, input, context);
+                    execution.Actions.AddRange(actionExecutions);
+                }
             }
 
             // 6. Check stop signals if rule matched
@@ -256,7 +267,7 @@ public class RuleEngine : IRuleEngine
                 if (rule.StopProcessing)
                 {
                     execution.StoppedProcessing = true;
-                    if (options.EnableExplainability)
+                    if (options.EnableExplainability && parentNode != null)
                     {
                         parentNode.Children[parentNode.Children.Count - 1].StoppedProcessing = true;
                     }
@@ -287,7 +298,7 @@ public class RuleEngine : IRuleEngine
                     Priority = 0
                 };
 
-                parentNode.Children.Add(groupNode);
+                parentNode!.Children.Add(groupNode);
             }
 
             // Recursively evaluate group using the SAME pipeline
@@ -297,8 +308,17 @@ public class RuleEngine : IRuleEngine
             await EvaluateInternalAsync(input, group, context, result, groupParentNode, options, executionState, groupPath: group.Name);
 
             // Check if any rule in the group stopped processing
-            var newExecutions = result.Executions.Skip(previousExecutionCount);
-            if (newExecutions.Any(e => e.StoppedProcessing))
+            var stoppedInGroup = false;
+            for (var ei = previousExecutionCount; ei < result.Executions.Count; ei++)
+            {
+                if (result.Executions[ei].StoppedProcessing)
+                {
+                    stoppedInGroup = true;
+                    break;
+                }
+            }
+
+            if (stoppedInGroup)
             {
                 if (options.EnableExplainability && groupNode != null)
                 {
@@ -313,6 +333,16 @@ public class RuleEngine : IRuleEngine
                 return; // Stop entire pipeline
             }
         }
+    }
+
+    private static IReadOnlyList<IRule<T>> GetRulesSortedByPriorityDescending<T>(IRuleSet<T> ruleSet)
+    {
+        if (ruleSet is RuleSet<T> concrete)
+        {
+            return concrete.GetRulesSortedByPriorityDescending();
+        }
+
+        return ruleSet.Rules.OrderByDescending(r => r.Priority).ToList();
     }
 
     /// <summary>
@@ -335,8 +365,6 @@ public class RuleEngine : IRuleEngine
 
         foreach (var step in actionSteps)
         {
-            var actionDesc = $"{step.Label}";
-            
             // Check if this is a conditional step
             if (step.PredicateAsync == null)
             {
@@ -345,7 +373,7 @@ public class RuleEngine : IRuleEngine
                 
                 actionExecutions.Add(new ActionExecution
                 {
-                    Description = actionDesc,
+                    Description = step.Label,
                     Executed = true,
                     Skipped = false
                 });
@@ -361,7 +389,7 @@ public class RuleEngine : IRuleEngine
                     
                     actionExecutions.Add(new ActionExecution
                     {
-                        Description = actionDesc,
+                        Description = step.Label,
                         Executed = true,
                         Skipped = false
                     });
@@ -370,7 +398,7 @@ public class RuleEngine : IRuleEngine
                 {
                     actionExecutions.Add(new ActionExecution
                     {
-                        Description = actionDesc,
+                        Description = step.Label,
                         Executed = false,
                         Skipped = true,
                         SkipReason = "PredicateNotMet"

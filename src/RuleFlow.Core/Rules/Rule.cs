@@ -359,5 +359,5 @@ public class Rule<T> : IRule<T>
     /// <summary>
     /// Returns the list of action steps for debugging/introspection.
     /// </summary>
-    internal IReadOnlyList<ActionStep<T>> GetActionSteps() => _actionSteps.AsReadOnly();
+    internal IReadOnlyList<ActionStep<T>> GetActionSteps() => _actionSteps;
 }
