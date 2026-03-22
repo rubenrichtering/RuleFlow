@@ -11,6 +11,11 @@
     <ItemGroup>
       <ProjectReference Include="..\..\src\RuleFlow.Abstractions\RuleFlow.Abstractions.csproj" />
       <ProjectReference Include="..\..\src\RuleFlow.Core\RuleFlow.Core.csproj" />
+      <ProjectReference Include="..\..\src\RuleFlow.Extensions.DependencyInjection\RuleFlow.Extensions.DependencyInjection.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.0" />
     </ItemGroup>
 
 </Project>

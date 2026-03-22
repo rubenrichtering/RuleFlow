@@ -13,6 +13,7 @@ RuleFlow is a lightweight, developer-first rule engine for .NET focused on clari
 - Hierarchical rule groups
 - Interface-driven design
 - **Rule persistence** (load rule definitions from JSON)
+- **ASP.NET Core DI integration** (Dependency Injection)
 
 ## 🚀 Quick Start
 
@@ -30,6 +31,33 @@ var result = engine.Evaluate(order, rules);
 
 Console.WriteLine(result.Explain());
 ```
+
+## 🔧 ASP.NET Core Integration
+
+Use RuleFlow in your ASP.NET Core applications with built-in Dependency Injection:
+
+```csharp
+// Register RuleFlow in Startup
+builder.Services.AddRuleFlow();
+
+// Inject into your services
+public class OrderService
+{
+    private readonly IRuleEngine _ruleEngine;
+
+    public OrderService(IRuleEngine ruleEngine)
+    {
+        _ruleEngine = ruleEngine;
+    }
+
+    public void Process(Order order)
+    {
+        var result = _ruleEngine.Evaluate(order, OrderRules.ApprovalRules);
+    }
+}
+```
+
+See [RuleFlow.Extensions.DependencyInjection](src/RuleFlow.Extensions.DependencyInjection/README.md) for details.
 
 ## 🎯 Key Concepts
 
@@ -117,7 +145,8 @@ var executableRuleSet = mapper.MapRuleSet(definition);
 
 // Execute like normal
 var engine = new RuleEngine();
-var result = engine.Evaluate(order, executableRuleSet);
+var result = Extensions.DependencyInjection** → ASP.NET Core DI integration
+- **RuleFlow.Core.Tests** → 11order, executableRuleSet);
 ```
 
 **Key Points:**
@@ -161,12 +190,16 @@ RuleFlow focuses on:
   - ✅ Registry pattern for conditions/actions
   - ✅ Mapping to executable rules
   - 🔲 Database storage
-  - 🔲 Versioning / Audit trail
+  ✅ **ASP.NET Integration (v1)**
+  - ✅ services.AddRuleFlow()
+  - ✅ DI registration (singleton RuleEngine, scoped IRuleContext)
+  - ✅ Optional configuration
+  - 🔲 Middleware support
+  - 🔲 ASP.NET filters
 - 🔲 Dynamic rule compilation
 - 🔲 Execution Options / Modes  
    - Partial execution  
    - Scenario-based evaluation
-- 🔲 ASP.NET Integration  
    - services.AddRuleFlow()
 - 🔲 Performance Optimization  
    - Compiled expressions  
