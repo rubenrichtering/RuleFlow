@@ -5,7 +5,13 @@ using RuleFlow.Abstractions.Results;
 namespace RuleFlow.Core.Formatting;
 
 /// <summary>
-/// Formats RuleResult as a tree structure using the execution tree (Explainability v2).
+/// Formats RuleResult as a tree structure using the execution tree with detailed state information.
+/// 
+/// Shows:
+/// - Rule execution states (Executed, Matched, Skipped, StoppedProcessing)
+/// - Skip reasons
+/// - Action-level execution details
+/// - Hierarchical structure for groups and nested rules
 /// </summary>
 public class TextTreeFormatter : IRuleResultFormatter
 {
@@ -24,7 +30,8 @@ public class TextTreeFormatter : IRuleResultFormatter
             foreach (var exec in result.Executions)
             {
                 var status = exec.Matched ? "✔" : "✖";
-                sb.AppendLine($"{status} {exec.RuleName}" +
+                var skipIndicator = exec.Skipped ? $" [{exec.SkipReason}]" : "";
+                sb.AppendLine($"{status} {exec.RuleName}{skipIndicator}" +
                               (exec.Reason != null ? $" ({exec.Reason})" : ""));
             }
         }
@@ -34,7 +41,7 @@ public class TextTreeFormatter : IRuleResultFormatter
 
     private void AppendNode(StringBuilder sb, RuleExecutionNode node, string indent)
     {
-        // Skip root node name, just process its children
+        // Skip root node formatting, just process its children
         if (node.Type == "Group" && indent == "")
         {
             // Process children of root
@@ -45,24 +52,28 @@ public class TextTreeFormatter : IRuleResultFormatter
         }
         else
         {
-            // Format the node
+            // Format the node with state information
             var marker = GetMarker(node);
-            var stopIndicator = node.StoppedProcessing ? " (STOP)" : "";
-            var skipIndicator = !node.Executed && node.Type == "Rule" ? " (SKIPPED)" : "";
+            var stateInfo = GetStateInfo(node);
+            var reasonInfo = !string.IsNullOrEmpty(node.Reason) ? $" ({node.Reason})" : "";
 
             sb.Append(indent);
             sb.Append(marker);
             sb.Append(" ");
             sb.Append(node.Name);
-
-            if (!string.IsNullOrEmpty(node.Reason))
-            {
-                sb.Append($" ({node.Reason})");
-            }
-
-            sb.Append(stopIndicator);
-            sb.Append(skipIndicator);
+            sb.Append(stateInfo);
+            sb.Append(reasonInfo);
             sb.AppendLine();
+
+            // Add action details if this is a rule with actions
+            if (node.Type == "Rule" && node.Actions.Count > 0)
+            {
+                var actionIndent = indent + "  ";
+                foreach (var action in node.Actions)
+                {
+                    AppendActionExecution(sb, action, actionIndent);
+                }
+            }
 
             // Add children with increased indent
             var childIndent = indent + "  ";
@@ -73,13 +84,63 @@ public class TextTreeFormatter : IRuleResultFormatter
         }
     }
 
+    /// <summary>
+    /// Appends action execution details to the output.
+    /// </summary>
+    private void AppendActionExecution(StringBuilder sb, ActionExecution action, string indent)
+    {
+        var marker = action.Executed ? "→" : "⊘";
+        var skipInfo = action.Skipped ? $" [{action.SkipReason}]" : "";
+        
+        sb.Append(indent);
+        sb.Append(marker);
+        sb.Append(" ");
+        sb.Append(action.Description);
+        sb.Append(skipInfo);
+        sb.AppendLine();
+    }
+
+    /// <summary>
+    /// Gets a visual marker for the node type and execution state.
+    /// </summary>
     private string GetMarker(RuleExecutionNode node)
     {
         return node.Type switch
         {
-            "Rule" => node.Matched == true ? "✔" : "✖",
+            "Rule" => node.Skipped ? "⊘" : node.Matched == true ? "✔" : "✖",
             "Group" => "📁",
             _ => "○"
         };
+    }
+
+    /// <summary>
+    /// Gets state information string showing execution state details.
+    /// </summary>
+    private string GetStateInfo(RuleExecutionNode node)
+    {
+        var parts = new List<string>();
+
+        if (node.Type == "Rule")
+        {
+            if (node.Skipped)
+            {
+                parts.Add($"SKIPPED [{node.SkipReason}]");
+            }
+            else if (!node.Executed)
+            {
+                parts.Add("NOT EXECUTED");
+            }
+            else if (node.Matched.HasValue)
+            {
+                parts.Add(node.Matched.Value ? "MATCHED" : "NOT MATCHED");
+            }
+
+            if (node.StoppedProcessing)
+            {
+                parts.Add("STOP");
+            }
+        }
+
+        return parts.Count > 0 ? $" [{string.Join(" | ", parts)}]" : "";
     }
 }

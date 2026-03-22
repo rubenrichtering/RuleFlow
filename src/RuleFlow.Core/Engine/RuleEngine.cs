@@ -2,6 +2,7 @@ using RuleFlow.Abstractions;
 using RuleFlow.Abstractions.Execution;
 using RuleFlow.Abstractions.Results;
 using RuleFlow.Core.Context;
+using RuleFlow.Core.Rules;
 
 namespace RuleFlow.Core.Engine;
 
@@ -117,7 +118,8 @@ public class RuleEngine : IRuleEngine
     /// 
     /// Responsibilities:
     /// - Evaluate conditions (respecting async priority)
-    /// - Record execution results
+    /// - Record execution results with clear state tracking (Executed/Skipped/Matched)
+    /// - Track action-level execution
     /// - Execute actions (respecting async priority)
     /// - Handle StopProcessing and StopOnFirstMatch
     /// - Process groups recursively (using the same pipeline)
@@ -151,16 +153,57 @@ public class RuleEngine : IRuleEngine
             // 1. Check metadata filter
             if (options.MetadataFilter != null && !options.MetadataFilter(rule))
             {
-                continue; // Skip this rule
+                // Rule is skipped due to metadata filter
+                var skippedExecution = new RuleExecution
+                {
+                    RuleName = rule.Name,
+                    Executed = false,
+                    Skipped = true,
+                    SkipReason = "MetadataFilter",
+                    Matched = false,
+                    Reason = rule.Reason,
+                    Priority = rule.Priority,
+                    GroupName = groupPath
+                };
+
+                // Copy metadata from rule to execution
+                foreach (var kvp in rule.Metadata)
+                {
+                    skippedExecution.Metadata[kvp.Key] = kvp.Value;
+                }
+
+                result.Executions.Add(skippedExecution);
+
+                // Build explainability tree node for skipped rule
+                if (options.EnableExplainability)
+                {
+                    var skippedRuleNode = new RuleExecutionNode
+                    {
+                        Name = rule.Name,
+                        Type = "Rule",
+                        Executed = false,
+                        Skipped = true,
+                        SkipReason = "MetadataFilter",
+                        Matched = false,
+                        Reason = rule.Reason,
+                        Priority = rule.Priority
+                    };
+
+                    parentNode.Children.Add(skippedRuleNode);
+                }
+
+                continue; // Skip to next rule
             }
 
             // 2. Evaluate condition (async-first)
             var matched = await rule.EvaluateAsync(input, context);
 
-            // 3. Record execution
+            // 3. Record execution with clear states
             var execution = new RuleExecution
             {
                 RuleName = rule.Name,
+                Executed = true,  // Rule was evaluated
+                Skipped = false,   // Rule was not skipped
                 Matched = matched,
                 Reason = rule.Reason,
                 Priority = rule.Priority,
@@ -182,21 +225,33 @@ public class RuleEngine : IRuleEngine
                 {
                     Name = rule.Name,
                     Type = "Rule",
+                    Executed = true,
+                    Skipped = false,
                     Matched = matched,
                     Reason = rule.Reason,
-                    Priority = rule.Priority,
-                    Executed = true
+                    Priority = rule.Priority
                 };
 
                 parentNode.Children.Add(ruleNode);
+
+                // 5. If matched, execute actions and track them
+                if (matched)
+                {
+                    var actionExecutions = await ExecuteActionsWithTrackingAsync(rule, input, context);
+                    execution.Actions.AddRange(actionExecutions);
+                    ruleNode.Actions.AddRange(actionExecutions);
+                }
+            }
+            else if (matched)
+            {
+                // Explainability disabled, but still execute actions
+                var actionExecutions = await ExecuteActionsWithTrackingAsync(rule, input, context);
+                execution.Actions.AddRange(actionExecutions);
             }
 
-            // 5. If matched, execute action and check stop signals
+            // 6. Check stop signals if rule matched
             if (matched)
             {
-                // Execute action (async-first)
-                await rule.ExecuteAsync(input, context);
-
                 // Check StopProcessing (rule-level takes precedence)
                 if (rule.StopProcessing)
                 {
@@ -261,6 +316,73 @@ public class RuleEngine : IRuleEngine
     }
 
     /// <summary>
+    /// Executes all action steps in a rule and tracks which ones executed vs. were skipped.
+    /// Returns a list of ActionExecution records for explainability.
+    /// </summary>
+    private async Task<List<ActionExecution>> ExecuteActionsWithTrackingAsync<T>(
+        IRule<T> rule,
+        T input,
+        IRuleContext context)
+    {
+        var actionExecutions = new List<ActionExecution>();
+        
+        // Get the action steps from the rule
+        var rule_impl = rule as Rule<T>;
+        if (rule_impl == null)
+            return actionExecutions; // No action steps available
+
+        var actionSteps = rule_impl.GetActionSteps();
+
+        foreach (var step in actionSteps)
+        {
+            var actionDesc = $"{step.Label}";
+            
+            // Check if this is a conditional step
+            if (step.PredicateAsync == null)
+            {
+                // Unconditional action - always execute
+                await step.ExecuteAsync(input, context);
+                
+                actionExecutions.Add(new ActionExecution
+                {
+                    Description = actionDesc,
+                    Executed = true,
+                    Skipped = false
+                });
+            }
+            else
+            {
+                // Conditional action - check predicate first
+                bool predicatePassed = await step.PredicateAsync(input, context);
+                
+                if (predicatePassed)
+                {
+                    await step.ExecuteAsync(input, context);
+                    
+                    actionExecutions.Add(new ActionExecution
+                    {
+                        Description = actionDesc,
+                        Executed = true,
+                        Skipped = false
+                    });
+                }
+                else
+                {
+                    actionExecutions.Add(new ActionExecution
+                    {
+                        Description = actionDesc,
+                        Executed = false,
+                        Skipped = true,
+                        SkipReason = "PredicateNotMet"
+                    });
+                }
+            }
+        }
+
+        return actionExecutions;
+    }
+
+    /// <summary>
     /// Marks remaining unevaluated rules in a node as skipped in the explainability tree.
     /// </summary>
     private void MarkRemainingAsSkipped(RuleExecutionNode node, RuleResult result)
@@ -269,7 +391,8 @@ public class RuleEngine : IRuleEngine
         {
             if (child.Type == "Rule" && !child.Executed)
             {
-                child.Executed = false;
+                child.Skipped = true;
+                child.SkipReason = "StoppedByPreviousRule";
             }
             else if (child.Type == "Group")
             {
