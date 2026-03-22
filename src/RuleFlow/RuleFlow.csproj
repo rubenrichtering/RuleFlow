@@ -1,0 +1,39 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latestmajor</LangVersion>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>RuleFlow</RootNamespace>
+    <PackageId>RuleFlow</PackageId>
+    <Authors>Ruben Richtering</Authors>
+    <Description>Lightweight, developer-friendly rule engine for .NET</Description>
+    <PackageProjectUrl>https://github.com/rubenrichtering/RuleFlow</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/rubenrichtering/RuleFlow</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageTags>rules;engine;dotnet;explainability</PackageTags>
+    <Version>$(Version)</Version>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="../../README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\RuleFlow.Abstractions\RuleFlow.Abstractions.csproj" />
+    <ProjectReference Include="..\RuleFlow.Core\RuleFlow.Core.csproj" />
+    <ProjectReference Include="..\RuleFlow.Extensions.DependencyInjection\RuleFlow.Extensions.DependencyInjection.csproj" />
+  </ItemGroup>
+
+  <!-- Non-packable project references are not emitted into the nupkg by default; ship all assemblies in one package. -->
+  <ItemGroup>
+    <None Include="../RuleFlow.Abstractions/bin/$(Configuration)/$(TargetFramework)/RuleFlow.Abstractions.dll" Pack="true" PackagePath="lib/$(TargetFramework)" />
+    <None Include="../RuleFlow.Core/bin/$(Configuration)/$(TargetFramework)/RuleFlow.Core.dll" Pack="true" PackagePath="lib/$(TargetFramework)" />
+    <None Include="../RuleFlow.Extensions.DependencyInjection/bin/$(Configuration)/$(TargetFramework)/RuleFlow.Extensions.DependencyInjection.dll" Pack="true" PackagePath="lib/$(TargetFramework)" />
+  </ItemGroup>
+
+</Project>

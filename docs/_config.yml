@@ -1,0 +1,6 @@
+title: RuleFlow
+description: Lightweight, developer-friendly rule engine for .NET
+theme: jekyll-theme-minimal
+markdown: kramdown
+# For GitHub Pages as a project site (https://<user>.github.io/<repo>/), set baseurl to "/<repo>".
+baseurl: "/RuleFlow"

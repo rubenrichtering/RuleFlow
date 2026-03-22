@@ -1,0 +1,37 @@
+name: Publish NuGet
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Resolve version from tag
+        id: version
+        run: |
+          ref="${GITHUB_REF#refs/tags/}"
+          ver="${ref#v}"
+          echo "version=$ver" >> "$GITHUB_OUTPUT"
+
+      - name: Pack
+        run: dotnet pack src/RuleFlow/RuleFlow.csproj -c Release -o "${{ github.workspace }}/artifacts" /p:Version=${{ steps.version.outputs.version }}
+
+      - name: Publish to NuGet.org
+        working-directory: ${{ github.workspace }}/artifacts
+        run: |
+          dotnet nuget push *.nupkg --api-key "${{ secrets.NUGET_API_KEY }}" --source https://api.nuget.org/v3/index.json --skip-duplicate
+          shopt -s nullglob
+          for f in *.snupkg; do
+            dotnet nuget push "$f" --api-key "${{ secrets.NUGET_API_KEY }}" --source https://api.nuget.org/v3/index.json --skip-duplicate
+          done
