@@ -3,6 +3,12 @@ namespace RuleFlow.ConsoleSample;
 public class Order
 {
     public decimal Amount { get; set; }
+
+    /// <summary>
+    /// Example ceiling used by dynamic field-to-field conditions in samples.
+    /// </summary>
+    public decimal MaxOrderValue { get; set; } = 1000m;
+
     public string Country { get; set; } = "US";
     public bool IsValid { get; set; }
     public bool FreeShipping { get; set; }

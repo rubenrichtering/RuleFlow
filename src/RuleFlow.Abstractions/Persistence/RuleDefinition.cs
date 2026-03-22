@@ -1,3 +1,5 @@
+using RuleFlow.Abstractions.Conditions;
+
 namespace RuleFlow.Abstractions.Persistence;
 
 /// <summary>
@@ -26,9 +28,14 @@ public class RuleDefinition
     public bool StopProcessing { get; set; }
 
     /// <summary>
-    /// Key to resolve the condition logic from the registry.
+    /// Key to resolve the condition logic from the registry (used when <see cref="Condition"/> is null).
     /// </summary>
     public string ConditionKey { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Optional structured condition tree (JSON-driven). When set, takes precedence over <see cref="ConditionKey"/>.
+    /// </summary>
+    public ConditionNode? Condition { get; set; }
 
     /// <summary>
     /// Keys to resolve the action logic from the registry.

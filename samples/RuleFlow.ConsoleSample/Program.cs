@@ -1,4 +1,4 @@
-﻿using RuleFlow.ConsoleSample.Playground;
+using RuleFlow.ConsoleSample.Playground;
 using RuleFlow.ConsoleSample.Playground.Scenarios;
 using RuleFlow.Core.Engine;
 using RuleFlow.Core.Rules;
@@ -17,6 +17,7 @@ var playgroundRunner = new ScenarioRunner()
     .AddScenario(new ConditionalChainsScenario())
     .AddScenario(new ExecutionOptionsScenario())
     .AddScenario(new PersistenceScenario())
+    .AddScenario(new DynamicConditionsScenario())
     .AddScenario(new DependencyInjectionScenario());
 
 // Run the interactive playground

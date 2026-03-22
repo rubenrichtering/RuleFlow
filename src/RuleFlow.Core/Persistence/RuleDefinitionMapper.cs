@@ -1,21 +1,27 @@
 using RuleFlow.Abstractions;
+using RuleFlow.Abstractions.Conditions;
 using RuleFlow.Abstractions.Persistence;
 using RuleFlow.Core.Rules;
 
 namespace RuleFlow.Core.Persistence;
 
 /// <summary>
-/// Maps persisted rule definitions to executable Rule<T> and RuleSet<T> instances.
-/// 
-/// Uses IRuleRegistry<T> to resolve condition and action logic from string keys.
+/// Maps persisted rule definitions to executable Rule&lt;T&gt; and RuleSet&lt;T&gt; instances.
+///
+/// Uses <see cref="IRuleRegistry{T}"/> to resolve condition and action logic from string keys,
+/// or <see cref="IConditionEvaluator{T}"/> when a persisted <see cref="RuleDefinition.Condition"/> tree is present.
 /// </summary>
 public class RuleDefinitionMapper<T>
 {
     private readonly IRuleRegistry<T> _registry;
+    private readonly IConditionEvaluator<T>? _conditionEvaluator;
 
-    public RuleDefinitionMapper(IRuleRegistry<T> registry)
+    public RuleDefinitionMapper(
+        IRuleRegistry<T> registry,
+        IConditionEvaluator<T>? conditionEvaluator = null)
     {
         _registry = registry ?? throw new ArgumentNullException(nameof(registry));
+        _conditionEvaluator = conditionEvaluator;
     }
 
     /// <summary>
@@ -32,9 +38,30 @@ public class RuleDefinitionMapper<T>
         // Start with the rule name
         var rule = Rule.For<T>(definition.Name);
 
-        // Resolve and apply the condition
-        var condition = _registry.GetCondition(definition.ConditionKey);
-        rule = rule.When(condition);
+        // Resolve and apply the condition (structured tree or registry key)
+        if (definition.Condition != null)
+        {
+            ConditionValidator.Validate(definition.Condition);
+            if (_conditionEvaluator == null)
+            {
+                throw new InvalidOperationException(
+                    "RuleDefinition has a dynamic Condition; supply IConditionEvaluator<T> to RuleDefinitionMapper.");
+            }
+
+            var tree = definition.Condition;
+            rule = rule.When((input, ctx) => _conditionEvaluator.Evaluate(input, tree, ctx));
+        }
+        else
+        {
+            if (string.IsNullOrWhiteSpace(definition.ConditionKey))
+            {
+                throw new InvalidOperationException(
+                    "RuleDefinition has no Condition; ConditionKey is required.");
+            }
+
+            var condition = _registry.GetCondition(definition.ConditionKey);
+            rule = rule.When(condition);
+        }
 
         // Resolve and apply all actions in sequence
         foreach (var actionKey in definition.ActionKeys)

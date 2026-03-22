@@ -19,6 +19,7 @@ This agent is responsible for:
 ## 📦 Project Structure
 
 RuleFlow/
+- docs/
 - src/
   - RuleFlow.Abstractions/
   - RuleFlow.Core/
