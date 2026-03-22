@@ -210,6 +210,36 @@ Do NOT use:
 
 ---
 
+## 📝 Release Notes Requirement
+
+**Every meaningful change MUST update `/CHANGELOG.md`.**
+
+When making changes:
+
+1. Update `/CHANGELOG.md` under the current version section: `[0.2.0] - Unreleased`
+2. Use the appropriate section:
+   - **Added** — new features
+   - **Changed** — behavior changes or breaking changes
+   - **Fixed** — bugfixes
+3. Keep entries concise and clear:
+   - Use active voice
+   - Be specific (not "improved stuff", but "optimized reflection caching")
+4. Do NOT duplicate entries
+5. Do NOT remove previous version sections
+6. Update CHANGELOG in the same commit as the feature
+
+Example entries:
+```markdown
+### Added
+- Support for nested property resolution in ReflectionFieldResolver
+- Pluggable operator system for condition evaluation
+
+### Fixed
+- Performance issue with uncached reflection lookups
+```
+
+---
+
 ## 🧠 Implementation Rules
 
 When implementing a feature:
@@ -219,6 +249,9 @@ When implementing a feature:
 3. Keep execution logic inside RuleEngine
 4. Do not mutate input collections unnecessarily
 5. Keep methods small and readable
+6. Update or add tests when requested
+7. Update documentation and playground scenarios
+8. **Update CHANGELOG.md** (see Release Notes Requirement above)
 
 ---
 

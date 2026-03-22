@@ -38,6 +38,11 @@ See the full documentation: [Dynamic conditions](https://rubenrichtering.github.
 
 Full documentation (GitHub Pages): [https://rubenrichtering.github.io/RuleFlow/](https://rubenrichtering.github.io/RuleFlow/)
 
+## Changelog
+
+See what's new and upcoming:
+[CHANGELOG.md](CHANGELOG.md)
+
 ## Repository layout
 
 | Path | Role |

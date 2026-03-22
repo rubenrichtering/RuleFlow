@@ -42,6 +42,11 @@ Versions follow **SemVer** tags: `vMAJOR.MINOR.PATCH` (for example `v0.1.0`). Pu
 
 In the repository settings, enable **Pages**: **Deploy from a branch**, branch **main**, folder **`/docs`**. This site is Markdown in `docs/` with the default Jekyll integration.
 
+## Releases
+
+See the full changelog on GitHub:
+https://github.com/rubenrichtering/RuleFlow/blob/main/CHANGELOG.md
+
 ## Source and playground
 
 Examples in this documentation mirror the **RuleFlow.ConsoleSample** scenarios under `samples/RuleFlow.ConsoleSample/Playground/Scenarios/`.
