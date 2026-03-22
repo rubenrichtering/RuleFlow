@@ -5,8 +5,16 @@ using RuleFlow.Core.Context;
 
 namespace RuleFlow.Core.Engine;
 
+/// <summary>
+/// RuleEngine implements a single, unified async-first execution pipeline.
+/// All execution paths (sync and async) delegate to a single internal async method.
+/// </summary>
 public class RuleEngine : IRuleEngine
 {
+    /// <summary>
+    /// Evaluates rules against input synchronously.
+    /// Delegates to async pipeline.
+    /// </summary>
     public RuleResult Evaluate<T>(
         T input,
         IRuleSet<T> ruleSet,
@@ -15,6 +23,10 @@ public class RuleEngine : IRuleEngine
         return Evaluate(input, ruleSet, context, options: null);
     }
 
+    /// <summary>
+    /// Evaluates rules against input with execution options synchronously.
+    /// Delegates to async pipeline.
+    /// </summary>
     public RuleResult Evaluate<T>(
         T input,
         IRuleSet<T> ruleSet,
@@ -23,6 +35,10 @@ public class RuleEngine : IRuleEngine
         return Evaluate(input, ruleSet, context: null, options);
     }
 
+    /// <summary>
+    /// Evaluates rules against input with context and options synchronously.
+    /// Delegates to async pipeline.
+    /// </summary>
     public RuleResult Evaluate<T>(
         T input,
         IRuleSet<T> ruleSet,
@@ -32,6 +48,10 @@ public class RuleEngine : IRuleEngine
         return EvaluateAsync(input, ruleSet, context, options).GetAwaiter().GetResult();
     }
 
+    /// <summary>
+    /// Evaluates rules against input asynchronously.
+    /// Delegates to unified internal pipeline.
+    /// </summary>
     public async Task<RuleResult> EvaluateAsync<T>(
         T input,
         IRuleSet<T> ruleSet,
@@ -40,6 +60,10 @@ public class RuleEngine : IRuleEngine
         return await EvaluateAsync(input, ruleSet, context, options: null);
     }
 
+    /// <summary>
+    /// Evaluates rules against input with execution options asynchronously.
+    /// Delegates to unified internal pipeline.
+    /// </summary>
     public async Task<RuleResult> EvaluateAsync<T>(
         T input,
         IRuleSet<T> ruleSet,
@@ -48,6 +72,10 @@ public class RuleEngine : IRuleEngine
         return await EvaluateAsync(input, ruleSet, context: null, options);
     }
 
+    /// <summary>
+    /// Evaluates rules against input with context and options asynchronously.
+    /// Main entry point that delegates to unified internal pipeline.
+    /// </summary>
     public async Task<RuleResult> EvaluateAsync<T>(
         T input,
         IRuleSet<T> ruleSet,
@@ -61,6 +89,7 @@ public class RuleEngine : IRuleEngine
         options ??= new RuleExecutionOptions<T>();
 
         var result = new RuleResult();
+        var executionState = new ExecutionState();
 
         // Create root node for the RuleSet
         var root = new RuleExecutionNode
@@ -71,9 +100,10 @@ public class RuleEngine : IRuleEngine
             Priority = 0
         };
 
-        var executionState = new ExecutionState();
-        var shouldStop = await EvaluateRuleSetAsync(input, ruleSet, context, result, root, options, executionState, groupPath: null);
+        // Single unified execution pipeline
+        await EvaluateInternalAsync(input, ruleSet, context, result, root, options, executionState, groupPath: null);
 
+        // Attach explainability tree if enabled
         if (options.EnableExplainability)
         {
             result.Root = root;
@@ -82,20 +112,21 @@ public class RuleEngine : IRuleEngine
         return result;
     }
 
-    private bool EvaluateRuleSet<T>(
-        T input,
-        IRuleSet<T> ruleSet,
-        IRuleContext context,
-        RuleResult result,
-        RuleExecutionNode parentNode,
-        RuleExecutionOptions<T> options,
-        ExecutionState executionState,
-        string? groupPath = null)
-    {
-        return EvaluateRuleSetAsync(input, ruleSet, context, result, parentNode, options, executionState, groupPath).GetAwaiter().GetResult();
-    }
-
-    private async Task<bool> EvaluateRuleSetAsync<T>(
+    /// <summary>
+    /// SINGLE UNIFIED EXECUTION METHOD - The source of truth for all rule evaluation and execution.
+    /// 
+    /// Responsibilities:
+    /// - Evaluate conditions (respecting async priority)
+    /// - Record execution results
+    /// - Execute actions (respecting async priority)
+    /// - Handle StopProcessing and StopOnFirstMatch
+    /// - Process groups recursively (using the same pipeline)
+    /// - Apply metadata filters and inclusion filters
+    /// - Build explainability tree
+    /// 
+    /// All execution paths (sync and async) flow through this method.
+    /// </summary>
+    private async Task EvaluateInternalAsync<T>(
         T input,
         IRuleSet<T> ruleSet,
         IRuleContext context,
@@ -108,23 +139,25 @@ public class RuleEngine : IRuleEngine
         // Check if this group should be included
         if (groupPath != null && options.IncludeGroups != null && !options.IncludeGroups.Contains(groupPath))
         {
-            return false; // Skip this group
+            return; // Skip this group
         }
 
         var orderedRules = ruleSet.Rules
             .OrderByDescending(r => r.Priority);
 
-        // Evaluate rules in current RuleSet
+        // === EVALUATE RULES IN CURRENT RULESET ===
         foreach (var rule in orderedRules)
         {
-            // Check if rule passes metadata filter
+            // 1. Check metadata filter
             if (options.MetadataFilter != null && !options.MetadataFilter(rule))
             {
                 continue; // Skip this rule
             }
 
+            // 2. Evaluate condition (async-first)
             var matched = await rule.EvaluateAsync(input, context);
 
+            // 3. Record execution
             var execution = new RuleExecution
             {
                 RuleName = rule.Name,
@@ -142,9 +175,9 @@ public class RuleEngine : IRuleEngine
 
             result.Executions.Add(execution);
 
+            // 4. Build explainability tree
             if (options.EnableExplainability)
             {
-                // Create node for this rule
                 var ruleNode = new RuleExecutionNode
                 {
                     Name = rule.Name,
@@ -158,36 +191,40 @@ public class RuleEngine : IRuleEngine
                 parentNode.Children.Add(ruleNode);
             }
 
+            // 5. If matched, execute action and check stop signals
             if (matched)
             {
+                // Execute action (async-first)
                 await rule.ExecuteAsync(input, context);
 
+                // Check StopProcessing (rule-level takes precedence)
                 if (rule.StopProcessing)
                 {
                     execution.StoppedProcessing = true;
                     if (options.EnableExplainability)
                     {
-                        var lastChild = parentNode.Children[parentNode.Children.Count - 1];
-                        lastChild.StoppedProcessing = true;
+                        parentNode.Children[parentNode.Children.Count - 1].StoppedProcessing = true;
                     }
-                    return true; // Signal to stop (rule-level takes precedence)
+                    return; // Stop entire pipeline
                 }
 
                 // Check StopOnFirstMatch option
                 if (options.StopOnFirstMatch)
                 {
                     executionState.StoppedByFirstMatchOption = true;
-                    return true; // Stop execution
+                    return; // Stop entire pipeline
                 }
             }
         }
 
-        // Evaluate groups in insertion order
+        // === EVALUATE GROUPS IN INSERTION ORDER (Recursive) ===
         foreach (var group in ruleSet.Groups)
         {
+            // Add group node to explainability tree
+            RuleExecutionNode? groupNode = null;
             if (options.EnableExplainability)
             {
-                var groupNode = new RuleExecutionNode
+                groupNode = new RuleExecutionNode
                 {
                     Name = group.Name,
                     Type = "Group",
@@ -198,25 +235,36 @@ public class RuleEngine : IRuleEngine
                 parentNode.Children.Add(groupNode);
             }
 
-            var shouldStop = await EvaluateRuleSetAsync(input, group, context, result, parentNode, options, executionState, groupPath: group.Name);
+            // Recursively evaluate group using the SAME pipeline
+            var groupParentNode = groupNode ?? parentNode;
+            var previousExecutionCount = result.Executions.Count;
 
-            if (shouldStop)
+            await EvaluateInternalAsync(input, group, context, result, groupParentNode, options, executionState, groupPath: group.Name);
+
+            // Check if any rule in the group stopped processing
+            var newExecutions = result.Executions.Skip(previousExecutionCount);
+            if (newExecutions.Any(e => e.StoppedProcessing))
             {
-                if (options.EnableExplainability)
+                if (options.EnableExplainability && groupNode != null)
                 {
-                    // Mark remaining groups/rules in this set as not executed
-                    MarkRemainingAsSkipped(parentNode.Children[parentNode.Children.Count - 1], result);
+                    MarkRemainingAsSkipped(groupNode, result);
                 }
-                return true; // Stop entire execution
+                return; // Stop entire pipeline
+            }
+
+            // Check if StopOnFirstMatch was triggered in the group
+            if (executionState.StoppedByFirstMatchOption)
+            {
+                return; // Stop entire pipeline
             }
         }
-
-        return false;
     }
 
+    /// <summary>
+    /// Marks remaining unevaluated rules in a node as skipped in the explainability tree.
+    /// </summary>
     private void MarkRemainingAsSkipped(RuleExecutionNode node, RuleResult result)
     {
-        // Mark all children of this node as skipped if they contain unevaluated rules
         foreach (var child in node.Children)
         {
             if (child.Type == "Rule" && !child.Executed)
