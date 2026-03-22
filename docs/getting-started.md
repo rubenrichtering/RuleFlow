@@ -48,8 +48,13 @@ dotnet run --project samples/RuleFlow.ConsoleSample
 
 The interactive menu runs scenarios that correspond to the documentation pages. When you change behavior or APIs, update both the relevant scenario and the matching doc page.
 
+## Dynamic conditions (optional)
+
+For rules whose logic is **authored as data** (JSON/UI/database), use structured **`ConditionNode`** trees and **`IConditionEvaluator<T>`** instead of C# lambdas in `When`. Same engine and explainability; mapping is described in [Persistence](advanced/persistence) and [Dynamic conditions](advanced/dynamic-conditions).
+
 ## Next steps
 
-- [Rules](concepts/rules) — conditions, actions, `ThenIf`
+- [Rules](concepts/rules) — conditions, actions, `ThenIf`, dynamic `ConditionNode`
 - [Rule sets](concepts/rulesets) — groups and ordering
 - [Explainability](concepts/explainability) — execution records and formatters
+- [Dynamic conditions](advanced/dynamic-conditions) — JSON-friendly condition trees and nested paths

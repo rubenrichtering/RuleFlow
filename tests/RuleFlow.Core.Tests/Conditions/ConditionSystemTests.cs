@@ -91,6 +91,68 @@ public class ConditionSystemTests
     }
 
     [Fact]
+    public void ReflectionFieldResolver_resolves_nested_properties()
+    {
+        var r = new ReflectionFieldResolver<NestedRoot>();
+        var model = new NestedRoot
+        {
+            Child = new NestedChild
+            {
+                Name = "x",
+                Deep = new NestedDeep { City = "Oslo" }
+            }
+        };
+
+        r.GetValue(model, "Child.Name").ShouldBe("x");
+        r.GetValue(model, "Child.Deep.City").ShouldBe("Oslo");
+        r.GetFieldType("Child.Deep.City").ShouldBe(typeof(string));
+    }
+
+    [Fact]
+    public void ReflectionFieldResolver_returns_null_when_intermediate_is_null()
+    {
+        var r = new ReflectionFieldResolver<NestedRoot>();
+        var model = new NestedRoot { Child = null };
+
+        r.GetValue(model, "Child.Name").ShouldBeNull();
+    }
+
+    [Fact]
+    public void ReflectionFieldResolver_throws_on_invalid_path()
+    {
+        var r = new ReflectionFieldResolver<NestedRoot>();
+        var model = new NestedRoot { Child = new NestedChild() };
+
+        var ex = Should.Throw<FieldResolutionException>(() => r.GetValue(model, "Child.NoSuchProperty"));
+        ex.FieldPath.ShouldBe("Child.NoSuchProperty");
+
+        Should.Throw<FieldResolutionException>(() => r.GetFieldType("Child.NoSuchProperty"));
+    }
+
+    [Fact]
+    public void ReflectionFieldResolver_null_input_returns_null()
+    {
+        var r = new ReflectionFieldResolver<NestedRoot>();
+        r.GetValue(null!, "Child.Name").ShouldBeNull();
+    }
+
+    private sealed class NestedRoot
+    {
+        public NestedChild? Child { get; set; }
+    }
+
+    private sealed class NestedChild
+    {
+        public string Name { get; set; } = "";
+        public NestedDeep? Deep { get; set; }
+    }
+
+    private sealed class NestedDeep
+    {
+        public string City { get; set; } = "";
+    }
+
+    [Fact]
     public void DefaultOperatorRegistry_resolves_operators_case_insensitive()
     {
         var reg = new DefaultOperatorRegistry();

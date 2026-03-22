@@ -78,6 +78,7 @@ Test helpers must:
 - **Source of truth:** user-facing documentation lives in `/docs` (GitHub Pages)
 - Keep root and project `README.md` files short; they should link to `/docs` instead of duplicating guides
 - When behavior or APIs change, update the matching playground scenario under `samples/RuleFlow.ConsoleSample/Playground/Scenarios/` and the relevant `/docs` page together
+- Update documentation after creating new or updating features
 
 ---
 

@@ -12,6 +12,12 @@ A **rule** ties a **condition** to one or more **actions**, with optional metada
 
 If the condition is **false**, the rule’s actions do not run (the rule may still appear in traces depending on options).
 
+### Dynamic conditions (`ConditionNode`)
+
+Rules can also be driven by a **structured** condition tree (`ConditionNode`) instead of a C# lambda. That tree is **data** (JSON, database, UI): no expression parsing, no compiled code. At runtime, `RuleDefinitionMapper<T>` turns a persisted `RuleDefinition.Condition` into a `.When((input, ctx) => evaluator.Evaluate(input, node, ctx))` so execution matches the same `When` / engine pipeline as hand-written rules.
+
+See [Dynamic conditions](../advanced/dynamic-conditions) for the model (`ConditionLeaf`, `ConditionGroup`), operators, nested property paths, and JSON examples. Playground: **`DynamicConditionsScenario.cs`**.
+
 ## `Then` (actions)
 
 - `.Then(Action<T>)` — runs when the condition matched.

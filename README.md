@@ -26,6 +26,13 @@ var result = engine.Evaluate(order, rules);
 - Explainability (execution records, tree and JSON formatters)
 - Async support (conditions and actions)
 - Rule groups
+- **Dynamic conditions** — structured, JSON-friendly `ConditionNode` trees (no expression parsing)
+
+## Dynamic conditions
+
+RuleFlow supports **user-defined rules** via structured conditions (JSON, database, or UI): `ConditionLeaf` / `ConditionGroup`, pluggable operators, and dotted **nested property** paths (e.g. `Customer.Name`) resolved with cached reflection.
+
+See the full documentation: [Dynamic conditions](https://rubenrichtering.github.io/RuleFlow/advanced/dynamic-conditions).
 
 ## Documentation
 

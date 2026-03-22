@@ -13,7 +13,7 @@ namespace RuleFlow.ConsoleSample.Playground.Scenarios;
 public class DynamicConditionsScenario : IScenario
 {
     public string Name => "Dynamic conditions";
-    public string Description => "JSON-driven ConditionNode trees (field/value, field/field, AND/OR)";
+    public string Description => "JSON-driven ConditionNode trees (nested fields, field/field, AND/OR)";
 
     public async Task Run()
     {
@@ -148,10 +148,19 @@ public class DynamicConditionsScenario : IScenario
 
             engine.Evaluate(order, ruleSet);
             Console.WriteLine($"{label}");
-            Console.WriteLine($"  Amount={order.Amount}, Max={order.MaxOrderValue}, Country={order.Country}");
+            Console.WriteLine($"  Amount={order.Amount}, Max={order.MaxOrderValue}, Country={order.Country}, Customer={order.Customer?.Name ?? "(null)"}");
             Console.WriteLine($"  RequiresApproval={order.RequiresApproval}, LogProcessed={order.LogProcessed}, StandardShipping={order.StandardShipping}");
             Console.WriteLine();
         }
+
+        // Nested: Customer.Name equals Alice → FlagReview (LogProcessed)
+        RunCase("Case E — nested Customer.Name", new Order
+        {
+            Amount = 10m,
+            MaxOrderValue = 5000m,
+            Country = "DE",
+            Customer = new Customer { Name = "Alice" }
+        });
 
         // Over ceiling: Amount 1500 > Max 1000 → RequireApproval from first rule
         RunCase("Case A — over ceiling vs MaxOrderValue", new Order

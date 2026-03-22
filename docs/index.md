@@ -31,6 +31,7 @@ RuleFlow is a **lightweight**, **developer-friendly** rule engine for .NET. You 
 | [Explainability](concepts/explainability) | `RuleExecution`, `ActionExecution`, formatters |
 | [Execution options](advanced/execution-options) | Stop on first match, filters, groups, explain toggle |
 | [Persistence](advanced/persistence) | `RuleDefinition`, registry, JSON definitions |
+| [Dynamic conditions](advanced/dynamic-conditions) | `ConditionNode`, operators, nested field paths |
 | [ASP.NET Core integration](advanced/aspnet-integration) | `AddRuleFlow()` and DI |
 
 ## Versioning and NuGet
