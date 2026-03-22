@@ -23,15 +23,9 @@ public class Rule<T> : IRule<T>
     // Action chain: supports multiple Then/ThenIf steps
     private List<ActionStep<T>> _actionSteps = new();
     
-    // Legacy support: old single-action fields (for backward compatibility)
-    private Action<T>? _action;
-    private Action<T, IRuleContext>? _actionWithContext;
-    
     // Async variants
     private Func<T, Task<bool>>? _asyncCondition;
     private Func<T, IRuleContext, Task<bool>>? _asyncConditionWithContext;
-    private Func<T, Task>? _asyncAction;
-    private Func<T, IRuleContext, Task>? _asyncActionWithContext;
 
     private Rule(string name)
     {
@@ -329,95 +323,35 @@ public class Rule<T> : IRule<T>
 
     /// <summary>
     /// Executes the rule action(s) against the input and context.
-    /// If multiple action steps are defined, executes them in order.
-    /// If no steps are defined, falls back to legacy single-action fields.
+    /// Executes all action steps in order, evaluating conditional predicates as needed.
     /// </summary>
     public void Execute(T input, IRuleContext context)
     {
-        // If any action steps are defined, execute them
-        if (_actionSteps.Count > 0)
-        {
-            foreach (var step in _actionSteps)
-            {
-                // Execute conditionally if predicate is defined
-                if (step.PredicateAsync == null)
-                {
-                    // Unconditional step - always execute
-                    // For sync-only steps, run the async task synchronously
-                    step.ExecuteAsync(input, context).GetAwaiter().GetResult();
-                }
-                else
-                {
-                    // Conditional step - check predicate first
-                    bool predicatePassed = step.PredicateAsync(input, context).GetAwaiter().GetResult();
-                    if (predicatePassed)
-                    {
-                        step.ExecuteAsync(input, context).GetAwaiter().GetResult();
-                    }
-                }
-            }
-        }
-        else
-        {
-            // Backward compatibility: fall back to legacy single-action support
-            if (_actionWithContext != null)
-            {
-                _actionWithContext(input, context);
-            }
-            else
-            {
-                _action?.Invoke(input);
-            }
-        }
+        ExecuteAsync(input, context).GetAwaiter().GetResult();
     }
 
     /// <summary>
     /// Asynchronously executes the rule action(s) against the input and context.
-    /// If multiple action steps are defined, executes them in order (awaiting each).
-    /// If no steps are defined, falls back to legacy single-action fields.
+    /// Executes all action steps in order, awaiting each and evaluating conditional predicates.
     /// </summary>
     public async Task ExecuteAsync(T input, IRuleContext context)
     {
-        // If any action steps are defined, execute them
-        if (_actionSteps.Count > 0)
+        foreach (var step in _actionSteps)
         {
-            foreach (var step in _actionSteps)
+            // Execute conditionally if predicate is defined
+            if (step.PredicateAsync == null)
             {
-                // Execute conditionally if predicate is defined
-                if (step.PredicateAsync == null)
-                {
-                    // Unconditional step - always execute
-                    await step.ExecuteAsync(input, context);
-                }
-                else
-                {
-                    // Conditional step - check predicate first
-                    bool predicatePassed = await step.PredicateAsync(input, context);
-                    if (predicatePassed)
-                    {
-                        await step.ExecuteAsync(input, context);
-                    }
-                }
-            }
-        }
-        else
-        {
-            // Backward compatibility: fall back to legacy single-action support
-            if (_asyncActionWithContext != null)
-            {
-                await _asyncActionWithContext(input, context);
-            }
-            else if (_asyncAction != null)
-            {
-                await _asyncAction(input);
-            }
-            else if (_actionWithContext != null)
-            {
-                _actionWithContext(input, context);
+                // Unconditional step - always execute
+                await step.ExecuteAsync(input, context);
             }
             else
             {
-                _action?.Invoke(input);
+                // Conditional step - check predicate first
+                bool predicatePassed = await step.PredicateAsync(input, context);
+                if (predicatePassed)
+                {
+                    await step.ExecuteAsync(input, context);
+                }
             }
         }
     }
