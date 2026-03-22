@@ -1,4 +1,5 @@
 using RuleFlow.Abstractions;
+using RuleFlow.Abstractions.Execution;
 using RuleFlow.Abstractions.Results;
 using RuleFlow.Core.Context;
 
@@ -11,10 +12,28 @@ public class RuleEngine : IRuleEngine
         IRuleSet<T> ruleSet,
         IRuleContext? context = null)
     {
+        return Evaluate(input, ruleSet, context, options: null);
+    }
+
+    public RuleResult Evaluate<T>(
+        T input,
+        IRuleSet<T> ruleSet,
+        RuleExecutionOptions<T> options)
+    {
+        return Evaluate(input, ruleSet, context: null, options);
+    }
+
+    public RuleResult Evaluate<T>(
+        T input,
+        IRuleSet<T> ruleSet,
+        IRuleContext? context,
+        RuleExecutionOptions<T>? options)
+    {
         if (input == null) throw new ArgumentNullException(nameof(input));
         if (ruleSet == null) throw new ArgumentNullException(nameof(ruleSet));
 
         context ??= new RuleContext();
+        options ??= new RuleExecutionOptions<T>();
 
         var result = new RuleResult();
 
@@ -27,9 +46,13 @@ public class RuleEngine : IRuleEngine
             Priority = 0
         };
 
-        var shouldStop = EvaluateRuleSet(input, ruleSet, context, result, root, groupPath: null);
+        var executionState = new ExecutionState();
+        var shouldStop = EvaluateRuleSet(input, ruleSet, context, result, root, options, executionState, groupPath: null);
 
-        result.Root = root;
+        if (options.EnableExplainability)
+        {
+            result.Root = root;
+        }
 
         return result;
     }
@@ -39,10 +62,28 @@ public class RuleEngine : IRuleEngine
         IRuleSet<T> ruleSet,
         IRuleContext? context = null)
     {
+        return await EvaluateAsync(input, ruleSet, context, options: null);
+    }
+
+    public async Task<RuleResult> EvaluateAsync<T>(
+        T input,
+        IRuleSet<T> ruleSet,
+        RuleExecutionOptions<T> options)
+    {
+        return await EvaluateAsync(input, ruleSet, context: null, options);
+    }
+
+    public async Task<RuleResult> EvaluateAsync<T>(
+        T input,
+        IRuleSet<T> ruleSet,
+        IRuleContext? context,
+        RuleExecutionOptions<T>? options)
+    {
         if (input == null) throw new ArgumentNullException(nameof(input));
         if (ruleSet == null) throw new ArgumentNullException(nameof(ruleSet));
 
         context ??= new RuleContext();
+        options ??= new RuleExecutionOptions<T>();
 
         var result = new RuleResult();
 
@@ -55,9 +96,13 @@ public class RuleEngine : IRuleEngine
             Priority = 0
         };
 
-        var shouldStop = await EvaluateRuleSetAsync(input, ruleSet, context, result, root, groupPath: null);
+        var executionState = new ExecutionState();
+        var shouldStop = await EvaluateRuleSetAsync(input, ruleSet, context, result, root, options, executionState, groupPath: null);
 
-        result.Root = root;
+        if (options.EnableExplainability)
+        {
+            result.Root = root;
+        }
 
         return result;
     }
@@ -68,8 +113,16 @@ public class RuleEngine : IRuleEngine
         IRuleContext context,
         RuleResult result,
         RuleExecutionNode parentNode,
+        RuleExecutionOptions<T> options,
+        ExecutionState executionState,
         string? groupPath = null)
     {
+        // Check if this group should be included
+        if (groupPath != null && options.IncludeGroups != null && !options.IncludeGroups.Contains(groupPath))
+        {
+            return false; // Skip this group
+        }
+
         var orderedRules = ruleSet.Rules
             .OrderByDescending(r => r.Priority)
             .ToList();
@@ -77,6 +130,12 @@ public class RuleEngine : IRuleEngine
         // Evaluate rules in current RuleSet
         foreach (var rule in orderedRules)
         {
+            // Check if rule passes metadata filter
+            if (options.MetadataFilter != null && !options.MetadataFilter(rule))
+            {
+                continue; // Skip this rule
+            }
+
             var matched = rule.Evaluate(input, context);
 
             var execution = new RuleExecution
@@ -96,18 +155,21 @@ public class RuleEngine : IRuleEngine
 
             result.Executions.Add(execution);
 
-            // Create node for this rule
-            var ruleNode = new RuleExecutionNode
+            if (options.EnableExplainability)
             {
-                Name = rule.Name,
-                Type = "Rule",
-                Matched = matched,
-                Reason = rule.Reason,
-                Priority = rule.Priority,
-                Executed = true
-            };
+                // Create node for this rule
+                var ruleNode = new RuleExecutionNode
+                {
+                    Name = rule.Name,
+                    Type = "Rule",
+                    Matched = matched,
+                    Reason = rule.Reason,
+                    Priority = rule.Priority,
+                    Executed = true
+                };
 
-            parentNode.Children.Add(ruleNode);
+                parentNode.Children.Add(ruleNode);
+            }
 
             if (matched)
             {
@@ -116,8 +178,18 @@ public class RuleEngine : IRuleEngine
                 if (rule.StopProcessing)
                 {
                     execution.StoppedProcessing = true;
-                    ruleNode.StoppedProcessing = true;
-                    return true; // Signal to stop
+                    if (options.EnableExplainability)
+                    {
+                        parentNode.Children.Last().StoppedProcessing = true;
+                    }
+                    return true; // Signal to stop (rule-level takes precedence)
+                }
+
+                // Check StopOnFirstMatch option
+                if (options.StopOnFirstMatch)
+                {
+                    executionState.StoppedByFirstMatchOption = true;
+                    return true; // Stop execution
                 }
             }
         }
@@ -125,22 +197,28 @@ public class RuleEngine : IRuleEngine
         // Evaluate groups in insertion order
         foreach (var group in ruleSet.Groups)
         {
-            var groupNode = new RuleExecutionNode
+            if (options.EnableExplainability)
             {
-                Name = group.Name,
-                Type = "Group",
-                Executed = true,
-                Priority = 0
-            };
+                var groupNode = new RuleExecutionNode
+                {
+                    Name = group.Name,
+                    Type = "Group",
+                    Executed = true,
+                    Priority = 0
+                };
 
-            parentNode.Children.Add(groupNode);
+                parentNode.Children.Add(groupNode);
+            }
 
-            var shouldStop = EvaluateRuleSet(input, group, context, result, groupNode, groupPath: group.Name);
+            var shouldStop = EvaluateRuleSet(input, group, context, result, parentNode, options, executionState, groupPath: group.Name);
 
             if (shouldStop)
             {
-                // Mark remaining groups/rules in this set as not executed
-                MarkRemainingAsSkipped(groupNode, result);
+                if (options.EnableExplainability)
+                {
+                    // Mark remaining groups/rules in this set as not executed
+                    MarkRemainingAsSkipped(parentNode.Children.Last(), result);
+                }
                 return true; // Stop entire execution
             }
         }
@@ -154,8 +232,16 @@ public class RuleEngine : IRuleEngine
         IRuleContext context,
         RuleResult result,
         RuleExecutionNode parentNode,
+        RuleExecutionOptions<T> options,
+        ExecutionState executionState,
         string? groupPath = null)
     {
+        // Check if this group should be included
+        if (groupPath != null && options.IncludeGroups != null && !options.IncludeGroups.Contains(groupPath))
+        {
+            return false; // Skip this group
+        }
+
         var orderedRules = ruleSet.Rules
             .OrderByDescending(r => r.Priority)
             .ToList();
@@ -163,6 +249,12 @@ public class RuleEngine : IRuleEngine
         // Evaluate rules in current RuleSet
         foreach (var rule in orderedRules)
         {
+            // Check if rule passes metadata filter
+            if (options.MetadataFilter != null && !options.MetadataFilter(rule))
+            {
+                continue; // Skip this rule
+            }
+
             var matched = await rule.EvaluateAsync(input, context);
 
             var execution = new RuleExecution
@@ -182,18 +274,21 @@ public class RuleEngine : IRuleEngine
 
             result.Executions.Add(execution);
 
-            // Create node for this rule
-            var ruleNode = new RuleExecutionNode
+            if (options.EnableExplainability)
             {
-                Name = rule.Name,
-                Type = "Rule",
-                Matched = matched,
-                Reason = rule.Reason,
-                Priority = rule.Priority,
-                Executed = true
-            };
+                // Create node for this rule
+                var ruleNode = new RuleExecutionNode
+                {
+                    Name = rule.Name,
+                    Type = "Rule",
+                    Matched = matched,
+                    Reason = rule.Reason,
+                    Priority = rule.Priority,
+                    Executed = true
+                };
 
-            parentNode.Children.Add(ruleNode);
+                parentNode.Children.Add(ruleNode);
+            }
 
             if (matched)
             {
@@ -202,8 +297,18 @@ public class RuleEngine : IRuleEngine
                 if (rule.StopProcessing)
                 {
                     execution.StoppedProcessing = true;
-                    ruleNode.StoppedProcessing = true;
-                    return true; // Signal to stop
+                    if (options.EnableExplainability)
+                    {
+                        parentNode.Children.Last().StoppedProcessing = true;
+                    }
+                    return true; // Signal to stop (rule-level takes precedence)
+                }
+
+                // Check StopOnFirstMatch option
+                if (options.StopOnFirstMatch)
+                {
+                    executionState.StoppedByFirstMatchOption = true;
+                    return true; // Stop execution
                 }
             }
         }
@@ -211,22 +316,28 @@ public class RuleEngine : IRuleEngine
         // Evaluate groups in insertion order
         foreach (var group in ruleSet.Groups)
         {
-            var groupNode = new RuleExecutionNode
+            if (options.EnableExplainability)
             {
-                Name = group.Name,
-                Type = "Group",
-                Executed = true,
-                Priority = 0
-            };
+                var groupNode = new RuleExecutionNode
+                {
+                    Name = group.Name,
+                    Type = "Group",
+                    Executed = true,
+                    Priority = 0
+                };
 
-            parentNode.Children.Add(groupNode);
+                parentNode.Children.Add(groupNode);
+            }
 
-            var shouldStop = await EvaluateRuleSetAsync(input, group, context, result, groupNode, groupPath: group.Name);
+            var shouldStop = await EvaluateRuleSetAsync(input, group, context, result, parentNode, options, executionState, groupPath: group.Name);
 
             if (shouldStop)
             {
-                // Mark remaining groups/rules in this set as not executed
-                MarkRemainingAsSkipped(groupNode, result);
+                if (options.EnableExplainability)
+                {
+                    // Mark remaining groups/rules in this set as not executed
+                    MarkRemainingAsSkipped(parentNode.Children.Last(), result);
+                }
                 return true; // Stop entire execution
             }
         }
@@ -249,4 +360,15 @@ public class RuleEngine : IRuleEngine
             }
         }
     }
+}
+
+/// <summary>
+/// Internal state tracking during rule execution.
+/// </summary>
+internal class ExecutionState
+{
+    /// <summary>
+    /// Set to true when StopOnFirstMatch option causes early termination.
+    /// </summary>
+    public bool StoppedByFirstMatchOption { get; set; }
 }

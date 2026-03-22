@@ -1,3 +1,4 @@
+using RuleFlow.Abstractions;
 using RuleFlow.Core.Engine;
 using RuleFlow.Core.Rules;
 using Shouldly;
@@ -47,7 +48,7 @@ public class EdgeCaseAndErrorTests
         var engine = new RuleEngine();
 
         // Act & Assert - should not throw when context is null
-        Should.NotThrow(() => engine.Evaluate(obj, ruleSet, null));
+        Should.NotThrow(() => engine.Evaluate<TestObject>(obj, ruleSet, (IRuleContext?)null));
 
         // And rule should still execute
         obj.Value.ShouldBe(20);
