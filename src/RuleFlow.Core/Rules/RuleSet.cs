@@ -8,6 +8,7 @@ public class RuleSet<T> : IRuleSet<T>
 
     private readonly List<IRule<T>> _rules = new();
     private readonly List<IRuleSet<T>> _groups = new();
+    private List<IRule<T>>? _sortedRulesByPriority;
 
     private RuleSet(string name)
     {
@@ -24,6 +25,7 @@ public class RuleSet<T> : IRuleSet<T>
         if (rule == null) throw new ArgumentNullException(nameof(rule));
 
         _rules.Add(rule);
+        _sortedRulesByPriority = null; // Invalidate cache
         return this;
     }
 
@@ -43,4 +45,16 @@ public class RuleSet<T> : IRuleSet<T>
     public IReadOnlyList<IRule<T>> Rules => _rules;
 
     public IReadOnlyList<IRuleSet<T>> Groups => _groups;
+
+    /// <summary>
+    /// Gets rules sorted by priority (descending), cached after first access.
+    /// </summary>
+    internal IReadOnlyList<IRule<T>> GetRulesByPriority()
+    {
+        if (_sortedRulesByPriority != null)
+            return _sortedRulesByPriority;
+
+        _sortedRulesByPriority = _rules.OrderByDescending(r => r.Priority).ToList();
+        return _sortedRulesByPriority;
+    }
 }
