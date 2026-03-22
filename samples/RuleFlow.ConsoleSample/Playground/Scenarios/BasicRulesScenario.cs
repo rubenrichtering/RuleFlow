@@ -13,21 +13,13 @@ public class BasicRulesScenario : IScenario
 
     public async Task Run()
     {
-        var order = new Order { Amount = 500 };
+        var order = new Order { Amount = 1500 };
 
-        var rules = RuleSet.For<Order>("BasicRules")
-            .Add(Rule.For<Order>("Standard order")
-                .When(o => o.Amount > 0)
-                .Then(o => o.IsValid = true)
-                .Because("Order amount is valid"))
-            .Add(Rule.For<Order>("Free shipping")
-                .When(o => o.Amount < 100)
-                .Then(o => o.FreeShipping = true)
-                .Because("Order qualifies for free shipping"))
-            .Add(Rule.For<Order>("Premium shipping")
-                .When(o => o.Amount >= 100 && o.Amount < 500)
-                .Then(o => o.PremiumShipping = true)
-                .Because("Order qualifies for premium shipping"));
+        var rules = RuleSet.For<Order>("ApprovalRules")
+            .Add(Rule.For<Order>("High amount")
+                .When(o => o.Amount > 1000)
+                .Then(o => o.RequiresApproval = true)
+                .Because("Amount exceeds threshold"));
 
         var engine = new RuleEngine();
         var result = engine.Evaluate(order, rules);
@@ -42,6 +34,7 @@ public class BasicRulesScenario : IScenario
         Console.WriteLine();
         Console.WriteLine("Execution Tree:");
         Console.WriteLine(result.Explain());
-        Console.WriteLine($"Final State: IsValid={order.IsValid}, FreeShipping={order.FreeShipping}, PremiumShipping={order.PremiumShipping}");
+        Console.WriteLine($"Final State: RequiresApproval={order.RequiresApproval}");
+        await Task.CompletedTask;
     }
 }

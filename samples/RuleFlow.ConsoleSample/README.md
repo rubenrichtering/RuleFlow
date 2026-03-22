@@ -1,38 +1,20 @@
 # RuleFlow.ConsoleSample
 
-This project demonstrates how to use RuleFlow in a simple console application.
+Interactive **playground** for RuleFlow: menu-driven scenarios under `Playground/Scenarios/` mirror the **`docs/`** site so examples stay aligned.
 
-## What it shows
+## Run
 
-- Creating rules
-- Executing rules
-- Reading results
-- Using explainability
+From the repository root:
 
-## Example
-
-```csharp
-var order = new Order { Amount = 1500 };
-
-var rules = RuleSet.For<Order>("ApprovalRules")
-    .Add(Rule.For<Order>("High amount")
-        .When(o => o.Amount > 1000)
-        .Then(o => o.RequiresApproval = true)
-        .Because("Amount exceeds threshold"));
-
-var engine = new RuleEngine();
-var result = engine.Evaluate(order, rules);
-
-Console.WriteLine(result.Explain());
+```bash
+dotnet run --project samples/RuleFlow.ConsoleSample
 ```
 
-## Output
-✔ High amount (Amount exceeds threshold)
+## What to try
 
-## Purpose
+- **Basic Rules** — minimal `RuleSet` / `RuleEngine` flow (same pattern as [Getting started](https://rubenrichtering.github.io/RuleFlow/getting-started.html))
+- Other scenarios map to [concepts](https://rubenrichtering.github.io/RuleFlow/concepts/rules.html) and [advanced](https://rubenrichtering.github.io/RuleFlow/advanced/execution-options.html) pages
 
-This project is intended as:
+## Documentation
 
-A quick start
-A reference implementation
-A playground for experimenting
+[https://rubenrichtering.github.io/RuleFlow/](https://rubenrichtering.github.io/RuleFlow/)

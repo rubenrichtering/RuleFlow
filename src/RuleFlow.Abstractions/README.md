@@ -1,39 +1,20 @@
 # RuleFlow.Abstractions
 
-RuleFlow.Abstractions contains the core contracts and shared models for RuleFlow.
+Public **contracts** and **models** for RuleFlow: no implementation logic here.
 
-## Purpose
+## Main types
 
-This project defines the public API surface of RuleFlow:
-- Interfaces for rules, rule sets, and the rule engine
-- Result models for rule execution
-- Formatting abstractions
+| Area | Examples |
+| --- | --- |
+| Engine | `IRuleEngine`, `RuleExecutionOptions<T>` |
+| Rules | `IRule<T>`, `IRuleSet<T>` |
+| Results | `RuleResult`, `RuleExecution`, `ActionExecution`, `RuleExecutionNode` |
+| Context | `IRuleContext` |
+| Persistence | `RuleDefinition`, `RuleSetDefinition`, `IRuleRegistry<T>` |
+| Formatting | Formatter interfaces used by explainability output |
 
-## Key Concepts
+## Documentation
 
-### IRule<T>
-Represents a single rule with:
-- Evaluation logic
-- Execution logic
+Full documentation: [https://rubenrichtering.github.io/RuleFlow/](https://rubenrichtering.github.io/RuleFlow/)
 
-### IRuleSet<T>
-A collection of rules for a specific domain model.
-
-### IRuleEngine
-Responsible for evaluating rules against an input.
-
-### RuleResult
-Contains the outcome of rule evaluation, including:
-- Which rules matched
-- Execution details
-
-## Design Goals
-
-- No implementation logic
-- Stable public contract
-- Extensible and testable
-
-## Used by
-
-- RuleFlow.Core (default implementation)
-- Future integrations (ASP.NET, persistence, etc.)
+Concepts: [Rules](https://rubenrichtering.github.io/RuleFlow/concepts/rules.html), [Explainability](https://rubenrichtering.github.io/RuleFlow/concepts/explainability.html).

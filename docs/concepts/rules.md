@@ -2,13 +2,9 @@
 title: Rules
 ---
 
-A **rule** ties a **condition** to one or more **actions**, with optional metadata and execution hints.
+A **rule** ties a **condition** to one or more **actions**, with optional metadata and execution hints. Playground: **Conditional Chains** (`ConditionalChainsScenario.cs`), **Basic Rules** (`BasicRulesScenario.cs`).
 
-## Naming and reasons
-
-Create a rule with `Rule.For<T>("Name")`. Use `.Because("…")` to record why the rule exists; this feeds explainability output.
-
-## Conditions: `When` / `WhenAsync`
+## `When` (conditions)
 
 - `.When(Func<T, bool>)` — synchronous condition on the input.
 - `.When(Func<T, IRuleContext, bool>)` — condition can read context (time, keyed items).
@@ -16,16 +12,16 @@ Create a rule with `Rule.For<T>("Name")`. Use `.Because("…")` to record why th
 
 If the condition is **false**, the rule’s actions do not run (the rule may still appear in traces depending on options).
 
-## Actions: `Then` / `ThenAsync`
+## `Then` (actions)
 
-- `.Then(Action<T>)` — run when the condition matched.
+- `.Then(Action<T>)` — runs when the condition matched.
 - `.ThenAsync(Func<T, Task>)` — async action.
 
 You can chain **multiple** steps; they run in order.
 
-## Conditional steps: `ThenIf`
+## `ThenIf` (conditional steps)
 
-Run a step only when an extra predicate holds (see **Conditional Chains** in `ConditionalChainsScenario.cs`):
+Run a step only when an extra predicate holds:
 
 ```csharp
 Rule.For<Order>("High amount processing")
@@ -42,6 +38,10 @@ Rule.For<Order>("High amount processing")
     .Because("Amount exceeds approval threshold");
 ```
 
+## `Because` (reason)
+
+`.Because("…")` records why the rule exists. It appears on `RuleExecution.Reason` and in explainability output.
+
 ## Priority and stop processing
 
 - `.WithPriority(n)` — higher numbers run first among peers (see [Rule sets](rulesets)).
@@ -49,4 +49,4 @@ Rule.For<Order>("High amount processing")
 
 ## Metadata
 
-`.WithMetadata(key, value)` attaches data you can filter on at execution time via `RuleExecutionOptions` (see **Metadata** case in `ExecutionOptionsScenario.cs`).
+`.WithMetadata(key, value)` attaches data you can filter on at execution time via `RuleExecutionOptions` (see **Metadata** in `ExecutionOptionsScenario.cs`).

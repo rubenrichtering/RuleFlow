@@ -20,17 +20,13 @@ This matches the **Basic Rules** scenario in the playground (`BasicRulesScenario
 using RuleFlow.Core.Engine;
 using RuleFlow.Core.Rules;
 
-var order = new Order { Amount = 500 };
+var order = new Order { Amount = 1500 };
 
-var rules = RuleSet.For<Order>("BasicRules")
-    .Add(Rule.For<Order>("Standard order")
-        .When(o => o.Amount > 0)
-        .Then(o => o.IsValid = true)
-        .Because("Order amount is valid"))
-    .Add(Rule.For<Order>("Free shipping")
-        .When(o => o.Amount < 100)
-        .Then(o => o.FreeShipping = true)
-        .Because("Order qualifies for free shipping"));
+var rules = RuleSet.For<Order>("ApprovalRules")
+    .Add(Rule.For<Order>("High amount")
+        .When(o => o.Amount > 1000)
+        .Then(o => o.RequiresApproval = true)
+        .Because("Amount exceeds threshold"));
 
 var engine = new RuleEngine();
 var result = engine.Evaluate(order, rules);
@@ -40,7 +36,7 @@ Console.WriteLine(result.Explain());
 
 ## ASP.NET Core and DI
 
-To register `IRuleEngine` and options with `AddRuleFlow()`, see the extension package readme in the repo: `src/RuleFlow.Extensions.DependencyInjection/README.md`.
+Register `IRuleEngine` and related services with `AddRuleFlow()`. See [ASP.NET Core integration](advanced/aspnet-integration).
 
 ## Run the playground
 
@@ -56,4 +52,4 @@ The interactive menu runs scenarios that correspond to the documentation pages. 
 
 - [Rules](concepts/rules) — conditions, actions, `ThenIf`
 - [Rule sets](concepts/rulesets) — groups and ordering
-- [Explainability](concepts/explainability) — trees and JSON output
+- [Explainability](concepts/explainability) — execution records and formatters

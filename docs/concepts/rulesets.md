@@ -2,7 +2,7 @@
 title: Rule sets
 ---
 
-A **rule set** is a named collection of rules and optional **nested groups**. It implements `IRuleSet<T>` and is built with `RuleSet.For<T>("Name")`.
+A **rule set** is a named collection of rules and optional **nested groups**. It implements `IRuleSet<T>` and is built with `RuleSet.For<T>("Name")`. Playground: **Rule Groups** (`GroupScenario.cs`).
 
 ## Adding rules
 
@@ -16,9 +16,9 @@ var rules = RuleSet.For<Order>("ApprovalRules")
 
 ## Groups
 
-Use `.AddGroup("GroupName", g => { … })` to nest another `RuleSet<T>` inside the parent. Groups are useful for organization, scoped execution, and explainability (the tree shows group nodes).
+Use `.AddGroup("GroupName", g => { … })` to nest another `RuleSet<T>` inside the parent. Groups help organization, scoped execution, and explainability (the tree shows group nodes).
 
-Example (from **Rule Groups** — `GroupScenario.cs`):
+Example:
 
 ```csharp
 var mainRuleSet = RuleSet.For<Order>("OrderProcessing")
@@ -36,8 +36,8 @@ var mainRuleSet = RuleSet.For<Order>("OrderProcessing")
 
 ## Ordering and priority
 
-Rules are ordered by **priority** (highest first) with stable ordering for equal priorities. Groups are visited according to the engine’s unified pipeline (see tests and `RuleEngine` for edge cases).
+Rules are ordered by **priority** (highest first) with stable ordering for equal priorities. Groups are visited according to the engine’s unified pipeline.
 
 ## Execution options
 
-You can limit which **groups** run via `RuleExecutionOptions<T>.IncludeGroups` (demonstrated in `ExecutionOptionsScenario.cs`). See [Execution options](../advanced/execution-options).
+You can limit which **groups** run via `RuleExecutionOptions<T>.IncludeGroups` — see [Execution options](../advanced/execution-options) and `ExecutionOptionsScenario.cs`.

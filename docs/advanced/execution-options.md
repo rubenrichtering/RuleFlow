@@ -18,11 +18,9 @@ Restrict execution to specific **group names**; other groups are skipped. See **
 
 ## `EnableExplainability`
 
-When `false`, the detailed **`Root`** tree is not built, which can reduce overhead; rule executions and applied rules can still be recorded. See **CASE 4**.
+When `false`, the detailed **`Root`** tree is not built, which can reduce overhead; rule executions can still be recorded. See **CASE 4**.
 
 ## API shape
-
-Typical usage:
 
 ```csharp
 var options = new RuleExecutionOptions<Order>
