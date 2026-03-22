@@ -21,13 +21,11 @@ var result = engine.Evaluate(order, rules);
 
 ## Features
 
-- Fluent API for rules and rule sets
-- Conditional chains (`ThenIf`) and rule groups
-- Explainability: execution records, tree and JSON formatters
-- Async conditions and actions
-- Execution options (stop on first match, metadata filter, group filter)
-- Optional JSON-backed definitions with a registry mapper
-- ASP.NET Core: `AddRuleFlow()` for `IRuleEngine` and `IRuleContext`
+- Fluent API
+- Conditional chains (`ThenIf`)
+- Explainability (execution records, tree and JSON formatters)
+- Async support (conditions and actions)
+- Rule groups
 
 ## Documentation
 
