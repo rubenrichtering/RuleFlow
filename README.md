@@ -12,6 +12,7 @@ RuleFlow is a lightweight, developer-first rule engine for .NET focused on clari
 - Rule priorities and stop-processing
 - Hierarchical rule groups
 - Interface-driven design
+- **Rule persistence** (load rule definitions from JSON)
 
 ## 🚀 Quick Start
 
@@ -85,6 +86,48 @@ var rules = RuleSet.For<Order>("Shipping")
         .Add(Rule.For<Order>("...")))
 ```
 
+### Persistence (v1)
+Load rule definitions from external sources (JSON, database, etc.):
+
+```csharp
+// Define rules as JSON
+var definitionJson = """
+{
+  "name": "ApprovalRules",
+  "rules": [
+    {
+      "name": "High amount",
+      "conditionKey": "HighAmount",
+      "actionKeys": ["RequireApproval"],
+      "priority": 10
+    }
+  ]
+}
+""";
+
+// Register your conditions and actions
+var registry = new RuleRegistry<Order>();
+registry.RegisterCondition("HighAmount", (order, _) => order.Amount > 500);
+registry.RegisterAction("RequireApproval", (order, _) => order.RequiresApproval = true);
+
+// Map definitions to executable rules
+var definition = JsonSerializer.Deserialize<RuleSetDefinition>(definitionJson);
+var mapper = new RuleDefinitionMapper<Order>(registry);
+var executableRuleSet = mapper.MapRuleSet(definition);
+
+// Execute like normal
+var engine = new RuleEngine();
+var result = engine.Evaluate(order, executableRuleSet);
+```
+
+**Key Points:**
+- Definitions are **data only** (no expression parsing)
+- Conditions/actions are registered by **string key**
+- Maps to **executable rules** using the fluent API
+- Fully **JSON-serializable**
+
+See [Persistence Layer Documentation](src/RuleFlow.Core/Persistence/README.md) for details.
+
 ## 🧠 Why RuleFlow?
 
 Most rule engines are either:
@@ -113,14 +156,16 @@ RuleFlow focuses on:
 - ✅ Runtime context with data
 - ✅ Explainability (tree & JSON)
 - ✅ Rule groups
-- 🔲 Rule persistence (database)
+- ✅ Persistence Layer (v1)
+  - ✅ Load rule definitions from JSON
+  - ✅ Registry pattern for conditions/actions
+  - ✅ Mapping to executable rules
+  - 🔲 Database storage
+  - 🔲 Versioning / Audit trail
 - 🔲 Dynamic rule compilation
 - 🔲 Execution Options / Modes  
    - Partial execution  
    - Scenario-based evaluation
-- 🔲 Persistence Layer  
-   - DB storage  
-   - Versioning / Audit trail
 - 🔲 ASP.NET Integration  
    - services.AddRuleFlow()
 - 🔲 Performance Optimization  
