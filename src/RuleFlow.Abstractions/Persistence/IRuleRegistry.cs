@@ -4,6 +4,7 @@ namespace RuleFlow.Abstractions.Persistence;
 /// Registry for resolving condition and action logic from string keys.
 /// 
 /// Used by the persistence layer to map RuleDefinition to executable Rule<T>.
+/// Implementations may treat registration as startup-only and become read-only after first lookup.
 /// </summary>
 public interface IRuleRegistry<T>
 {

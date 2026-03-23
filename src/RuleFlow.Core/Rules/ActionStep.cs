@@ -30,8 +30,4 @@ internal sealed class ActionStep<T>
     /// </summary>
     public string Label { get; init; } = "";
 
-    /// <summary>
-    /// Describes whether this step was skipped (due to failed predicate) or how it was executed.
-    /// </summary>
-    public string ExecutionStatus { get; set; } = "Executed";
 }

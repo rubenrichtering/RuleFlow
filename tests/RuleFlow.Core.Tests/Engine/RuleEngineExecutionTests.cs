@@ -1,4 +1,5 @@
 using RuleFlow.Abstractions;
+using RuleFlow.Abstractions.Execution;
 using RuleFlow.Core.Engine;
 using RuleFlow.Core.Rules;
 using Shouldly;
@@ -12,6 +13,41 @@ public class RuleEngineExecutionTests
         public string Name { get; set; } = "";
         public int Value { get; set; }
         public bool Flag { get; set; }
+    }
+
+    private sealed class CustomRule : IRule<TestObject>
+    {
+        private readonly Func<TestObject, IRuleContext, bool> _condition;
+        private readonly Action<TestObject, IRuleContext> _action;
+
+        public CustomRule(
+            string name,
+            Func<TestObject, IRuleContext, bool> condition,
+            Action<TestObject, IRuleContext> action)
+        {
+            Name = name;
+            _condition = condition;
+            _action = action;
+        }
+
+        public string Name { get; }
+        public string? Reason => null;
+        public int Priority => 0;
+        public bool StopProcessing => false;
+        public IReadOnlyDictionary<string, object?> Metadata => new Dictionary<string, object?>();
+
+        public bool Evaluate(TestObject input, IRuleContext context) => _condition(input, context);
+
+        public Task<bool> EvaluateAsync(TestObject input, IRuleContext context)
+            => Task.FromResult(_condition(input, context));
+
+        public void Execute(TestObject input, IRuleContext context) => _action(input, context);
+
+        public Task ExecuteAsync(TestObject input, IRuleContext context)
+        {
+            _action(input, context);
+            return Task.CompletedTask;
+        }
     }
 
     [Fact]
@@ -196,5 +232,66 @@ public class RuleEngineExecutionTests
         // Assert
         // Execution order (without priority): rule1 (10), rule2 (15), rule3 (30)
         obj.Value.ShouldBe(30);
+    }
+
+    [Fact]
+    public void Should_execute_actions_for_custom_irule_implementations_with_explainability_enabled()
+    {
+        // Arrange
+        var obj = new TestObject { Value = 10 };
+        var actionCount = 0;
+
+        var customRule = new CustomRule(
+            "Custom Rule",
+            condition: (x, _) => x.Value > 5,
+            action: (x, _) =>
+            {
+                actionCount++;
+                x.Flag = true;
+            });
+
+        var ruleSet = RuleSet<TestObject>.For("Custom Set")
+            .Add(customRule);
+
+        var engine = new RuleEngine();
+
+        // Act
+        var result = engine.Evaluate(obj, ruleSet);
+
+        // Assert
+        actionCount.ShouldBe(1);
+        obj.Flag.ShouldBeTrue();
+        result.AppliedRules.ShouldContain("Custom Rule");
+    }
+
+    [Fact]
+    public void Should_execute_actions_for_custom_irule_implementations_with_explainability_disabled()
+    {
+        // Arrange
+        var obj = new TestObject { Value = 10 };
+        var actionCount = 0;
+
+        var customRule = new CustomRule(
+            "Custom Rule",
+            condition: (x, _) => x.Value > 5,
+            action: (_, _) => actionCount++);
+
+        var ruleSet = RuleSet<TestObject>.For("Custom Set")
+            .Add(customRule);
+
+        var options = new RuleExecutionOptions<TestObject>
+        {
+            EnableExplainability = false
+        };
+
+        var engine = new RuleEngine();
+
+        // Act
+        var result = engine.Evaluate(obj, ruleSet, options);
+
+        // Assert
+        actionCount.ShouldBe(1);
+        result.Root.ShouldBeNull();
+        result.AppliedRules.ShouldContain("Custom Rule");
     }
 }

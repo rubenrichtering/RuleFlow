@@ -11,7 +11,7 @@ namespace RuleFlow.Core.Tests.Explainability;
 /// Tests to verify explainability output is accurate and complete.
 /// Ensures developers can understand exactly why rules matched and executed.
 /// </summary>
-public class ExpainabilityVerificationTests
+public class ExplainabilityVerificationTests
 {
     private class Order
     {

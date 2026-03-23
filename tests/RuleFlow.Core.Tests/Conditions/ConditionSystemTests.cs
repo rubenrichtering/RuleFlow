@@ -266,6 +266,62 @@ public class ConditionSystemTests
         no.Flag.ShouldBeFalse();
     }
 
+    [Fact]
+    public void RuleDefinitionMapper_preserves_nested_groups_when_mapping_ruleset_definition()
+    {
+        var registry = new RuleRegistry<SampleDto>();
+        registry.RegisterAction("Mark", (dto, _) => dto.Flag = true);
+
+        var evaluator = new ConditionEvaluator<SampleDto>(
+            new ReflectionFieldResolver<SampleDto>(),
+            new DefaultOperatorRegistry(),
+            new DefaultValueConverter());
+
+        var mapper = new RuleDefinitionMapper<SampleDto>(registry, evaluator);
+
+        var definition = new RuleSetDefinition
+        {
+            Name = "Root",
+            Groups =
+            [
+                new RuleSetDefinition
+                {
+                    Name = "Level1",
+                    Groups =
+                    [
+                        new RuleSetDefinition
+                        {
+                            Name = "Level2",
+                            Rules =
+                            [
+                                new RuleDefinition
+                                {
+                                    Name = "DeepRule",
+                                    Condition = new ConditionLeaf
+                                    {
+                                        Field = "Amount",
+                                        Operator = "greater_than",
+                                        Value = 10m
+                                    },
+                                    ActionKeys = ["Mark"]
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ]
+        };
+
+        var mapped = mapper.MapRuleSet(definition);
+        var engine = new RuleEngine();
+
+        var dto = new SampleDto { Amount = 20m };
+        var result = engine.Evaluate(dto, mapped);
+
+        dto.Flag.ShouldBeTrue();
+        result.AppliedRules.ShouldContain("DeepRule");
+    }
+
     private sealed class SampleDto
     {
         public decimal Amount { get; set; }

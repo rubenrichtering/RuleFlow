@@ -4,7 +4,26 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.2.0] - Unreleased
+## [0.3.0] - Unreleased
+- Regression tests for custom `IRule<T>` implementations to ensure actions execute in both explainability modes
+- Regression tests for nested `RuleSetDefinition` mapping to ensure deep groups are preserved
+- New IncludeGroups tests for duplicate nested group names (full-path filtering + legacy leaf-name compatibility)
+- Rule registry lifecycle tests covering startup registration, freeze-after-first-lookup behavior, and duplicate registration checks
+
+### Improved
+- IncludeGroups now supports deterministic full hierarchical paths (e.g., `Parent/Child`) with legacy leaf-name compatibility
+- Dynamic condition array conversion now avoids per-item converter allocations
+- Rule engine internals refactored into smaller helper methods for readability and maintainability
+
+### Fixed
+- Fixed action execution for non-concrete `IRule<T>` implementations (custom rules now execute correctly)
+- Fixed persisted ruleset mapping to preserve nested group hierarchies instead of flattening descendants
+- Fixed nested execution `GroupName` tracking to record full hierarchical paths for nested groups
+
+### Changed
+- `RuleRegistry<T>` now follows a startup-mutable/runtime-read-only lifecycle: registration is blocked after first lookup
+
+## [0.2.0] - 2026-03-23
 
 ### Added
 - Dynamic Condition System with `ConditionNode`, `ConditionLeaf`, and `ConditionGroup`

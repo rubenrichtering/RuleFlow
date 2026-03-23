@@ -1,4 +1,5 @@
 using RuleFlow.Abstractions;
+using RuleFlow.Abstractions.Execution;
 using RuleFlow.Core.Engine;
 using RuleFlow.Core.Rules;
 using Shouldly;
@@ -297,7 +298,75 @@ public class RuleGroupTests
         // Assert
         obj.ExecutionOrder.ShouldBe(new[] { "L1", "L2" });
         result.Executions[0].GroupName.ShouldBe("Level1");
-        result.Executions[1].GroupName.ShouldBe("Level2");
+        result.Executions[1].GroupName.ShouldBe("Level1/Level2");
+    }
+
+    [Fact]
+    public void Should_filter_nested_groups_by_full_path_when_names_are_duplicated()
+    {
+        // Arrange
+        var obj = new TestObject();
+
+        var rules = RuleSet<TestObject>.For("Main")
+            .AddGroup("ParentA", group => group
+                .AddGroup("Shared", nested => nested
+                    .Add(Rule<TestObject>.For("RuleA")
+                        .When(_ => true)
+                        .Then(x => x.ExecutionOrder.Add("A")))))
+            .AddGroup("ParentB", group => group
+                .AddGroup("Shared", nested => nested
+                    .Add(Rule<TestObject>.For("RuleB")
+                        .When(_ => true)
+                        .Then(x => x.ExecutionOrder.Add("B")))));
+
+        var options = new RuleExecutionOptions<TestObject>
+        {
+            IncludeGroups = new[] { "ParentA/Shared" }
+        };
+
+        var engine = new RuleEngine();
+
+        // Act
+        var result = engine.Evaluate(obj, rules, options);
+
+        // Assert
+        obj.ExecutionOrder.ShouldBe(new[] { "A" });
+        result.AppliedRules.ShouldContain("RuleA");
+        result.AppliedRules.ShouldNotContain("RuleB");
+    }
+
+    [Fact]
+    public void Should_support_legacy_leaf_name_group_filtering()
+    {
+        // Arrange
+        var obj = new TestObject();
+
+        var rules = RuleSet<TestObject>.For("Main")
+            .AddGroup("ParentA", group => group
+                .AddGroup("Shared", nested => nested
+                    .Add(Rule<TestObject>.For("RuleA")
+                        .When(_ => true)
+                        .Then(x => x.ExecutionOrder.Add("A")))))
+            .AddGroup("ParentB", group => group
+                .AddGroup("Shared", nested => nested
+                    .Add(Rule<TestObject>.For("RuleB")
+                        .When(_ => true)
+                        .Then(x => x.ExecutionOrder.Add("B")))));
+
+        var options = new RuleExecutionOptions<TestObject>
+        {
+            IncludeGroups = new[] { "Shared" }
+        };
+
+        var engine = new RuleEngine();
+
+        // Act
+        var result = engine.Evaluate(obj, rules, options);
+
+        // Assert
+        obj.ExecutionOrder.ShouldBe(new[] { "A", "B" });
+        result.AppliedRules.ShouldContain("RuleA");
+        result.AppliedRules.ShouldContain("RuleB");
     }
 
     [Fact]

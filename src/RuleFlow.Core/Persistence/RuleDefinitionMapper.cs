@@ -121,17 +121,24 @@ public class RuleDefinitionMapper<T>
         foreach (var groupDef in definition.Groups)
         {
             var mappedGroup = MapRuleSet(groupDef);
-            ruleSet = ruleSet.AddGroup(groupDef.Name, rs =>
-            {
-                // Add all rules from the mapped group
-                foreach (var rule in mappedGroup.Rules)
-                {
-                    rs.Add(rule);
-                }
-                return rs;
-            });
+            ruleSet = ruleSet.AddGroup(groupDef.Name, rs => CopyRuleSetTree(mappedGroup, rs));
         }
 
         return ruleSet;
+    }
+
+    private static RuleSet<T> CopyRuleSetTree(IRuleSet<T> source, RuleSet<T> destination)
+    {
+        foreach (var rule in source.Rules)
+        {
+            destination.Add(rule);
+        }
+
+        foreach (var group in source.Groups)
+        {
+            destination.AddGroup(group.Name, nested => CopyRuleSetTree(group, nested));
+        }
+
+        return destination;
     }
 }

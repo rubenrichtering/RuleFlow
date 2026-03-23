@@ -79,8 +79,7 @@ public sealed class DefaultValueConverter : IValueConverter
             var list = new List<object?>();
             foreach (var item in je.EnumerateArray())
             {
-                var conv = new DefaultValueConverter();
-                list.Add(conv.Convert(item, elemType));
+                list.Add(ConvertJsonElement(item, elemType));
             }
 
             var arr = Array.CreateInstance(elemType, list.Count);

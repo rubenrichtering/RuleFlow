@@ -14,7 +14,13 @@ Provide a predicate over `IRule<T>` to include only rules whose **metadata** mat
 
 ## `IncludeGroups`
 
-Restrict execution to specific **group names**; other groups are skipped. See **CASE 3**.
+Restrict execution to specific groups; other groups are skipped. See **CASE 3**.
+
+Matching supports:
+- Full hierarchical paths (recommended), for example `Parent/Child/SubChild`
+- Leaf-name matching (legacy compatibility), for example `SubChild`
+
+When full paths are used, group selection is deterministic even if multiple branches reuse the same leaf group name.
 
 ## `EnableExplainability`
 

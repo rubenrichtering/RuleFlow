@@ -17,6 +17,9 @@ var rules = RuleSet.For<Order>("ApprovalRules")
 
 var engine = new RuleEngine();
 var result = engine.Evaluate(order, rules);
+
+// Async-first path for server workloads:
+// var result = await engine.EvaluateAsync(order, rules);
 ```
 
 ## Features
