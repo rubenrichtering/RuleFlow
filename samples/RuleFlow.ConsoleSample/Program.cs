@@ -18,7 +18,8 @@ var playgroundRunner = new ScenarioRunner()
     .AddScenario(new ExecutionOptionsScenario())
     .AddScenario(new PersistenceScenario())
     .AddScenario(new DynamicConditionsScenario())
-    .AddScenario(new DependencyInjectionScenario());
+    .AddScenario(new DependencyInjectionScenario())
+    .AddScenario(new DebugFormattingScenario());
 
 // Run the interactive playground
 await playgroundRunner.RunInteractive();

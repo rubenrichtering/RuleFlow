@@ -31,7 +31,10 @@ var rules = RuleSet.For<Order>("ApprovalRules")
 var engine = new RuleEngine();
 var result = engine.Evaluate(order, rules);
 
-Console.WriteLine(result.Explain());
+// View execution results
+Console.WriteLine(result.Explain());  // Or use result.ToDebugString() for quick tree view
+
+// result properties: Executions (flat), Root (tree), AppliedRules (matched names), Metrics (if observability enabled)
 ```
 
 ## ASP.NET Core and DI

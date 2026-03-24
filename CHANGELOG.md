@@ -7,6 +7,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ## [0.3.0] - Unreleased
 
 ### Added
+- **Console Debug String Formatter** (`ToDebugString()` extension method) for human-first rule execution output
+  - Stable, deterministic debug output suitable for logs and console displays
+  - Execution tree rendering with hierarchical structure visualization
+  - Condition tree rendering when `ConditionNode` metadata available (AND/OR groups with leaf expressions)
+  - Status markers (✅ matched, ❌ not matched, 🛑 stopped) for clear visual feedback
+  - Action execution tracking with arrow notation (→ executed, ⊘ skipped)
+  - Automatic graceful degradation: tree → flat list when explainability unavailable
+  - Execution metrics summary (rules evaluated, matched, elapsed time) when observability enabled
+  - Null-safe handling with exception-safe wrapper
+  - New `DebugFormattingScenario` in console sample demonstrating simple and complex examples
 - **Lightweight Observability Layer** for runtime insights without impacting performance
   - New `IRuleObserver<T>` interface for pluggable observability callbacks
   - Minimal context DTOs: `RuleEvaluationContext<T>`, `RuleMatchContext<T>`, `RuleExecutionContext<T>`
