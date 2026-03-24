@@ -27,6 +27,7 @@ var result = engine.Evaluate(order, rules);
 - Fluent API
 - Conditional chains (`ThenIf`)
 - Explainability (execution records, tree and JSON formatters)
+- **Observability** — optional metrics and custom observer callbacks (zero overhead when disabled)
 - Async support (conditions and actions)
 - Rule groups
 - **Dynamic conditions** — structured, JSON-friendly `ConditionNode` trees (no expression parsing)

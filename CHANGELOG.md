@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [0.3.0] - Unreleased
+
+### Added
+- **Lightweight Observability Layer** for runtime insights without impacting performance
+  - New `IRuleObserver<T>` interface for pluggable observability callbacks
+  - Minimal context DTOs: `RuleEvaluationContext<T>`, `RuleMatchContext<T>`, `RuleExecutionContext<T>`
+  - `RuleExecutionMetrics` and `RuleExecutionSummary` for aggregated metrics collection
+  - Built-in `InMemoryRuleObserver<T>` for zero-boilerplate observability
+  - Extension of `RuleExecutionOptions<T>` with `EnableObservability`, `EnableDetailedTiming`, and `Observer` properties
+  - Observer callbacks invoked at: rule evaluation start, on match, after action execution, and completion
+  - Full support for observability in async rules, nested groups, and stop-processing scenarios
+  - 13 comprehensive observability tests covering disabled/enabled modes, callback ordering, exception safety, and metric accuracy
 - Regression tests for custom `IRule<T>` implementations to ensure actions execute in both explainability modes
 - Regression tests for nested `RuleSetDefinition` mapping to ensure deep groups are preserved
 - New IncludeGroups tests for duplicate nested group names (full-path filtering + legacy leaf-name compatibility)
@@ -14,6 +25,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - IncludeGroups now supports deterministic full hierarchical paths (e.g., `Parent/Child`) with legacy leaf-name compatibility
 - Dynamic condition array conversion now avoids per-item converter allocations
 - Rule engine internals refactored into smaller helper methods for readability and maintainability
+- Observability designed for zero overhead when disabled: no observer calls, no Stopwatch allocations, no context objects
 
 ### Fixed
 - Fixed action execution for non-concrete `IRule<T>` implementations (custom rules now execute correctly)
@@ -22,6 +34,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Changed
 - `RuleRegistry<T>` now follows a startup-mutable/runtime-read-only lifecycle: registration is blocked after first lookup
+- `RuleResult` now includes optional `Metrics` property populated only when observability is enabled (backward compatible)
 
 ## [0.2.0] - 2026-03-23
 

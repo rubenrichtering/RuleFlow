@@ -20,6 +20,7 @@ RuleFlow is a **lightweight**, **developer-friendly** rule engine for .NET. You 
 | **Lightweight** | Focused API; core types are easy to learn and test |
 | **Developer-friendly** | Fluent `Rule` / `RuleSet` builders; familiar C# lambdas |
 | **Explainability** | `RuleResult` with `RuleExecution`, `ActionExecution`, and formatters |
+| **Observability** | Optional metrics, custom observers, zero overhead when disabled |
 
 ## Documentation
 
@@ -30,6 +31,7 @@ RuleFlow is a **lightweight**, **developer-friendly** rule engine for .NET. You 
 | [Rule sets](concepts/rulesets) | `RuleSet`, groups, ordering |
 | [Explainability](concepts/explainability) | `RuleExecution`, `ActionExecution`, formatters |
 | [Execution options](advanced/execution-options) | Stop on first match, filters, groups, explain toggle |
+| [Observability](advanced/observability) | Metrics, custom observers, performance monitoring |
 | [Persistence](advanced/persistence) | `RuleDefinition`, registry, JSON definitions |
 | [Dynamic conditions](advanced/dynamic-conditions) | `ConditionNode`, operators, nested field paths |
 | [ASP.NET Core integration](advanced/aspnet-integration) | `AddRuleFlow()` and DI |
@@ -45,7 +47,7 @@ In the repository settings, enable **Pages**: **Deploy from a branch**, branch *
 ## Releases
 
 See the full changelog on GitHub:
-https://github.com/rubenrichtering/RuleFlow/blob/main/CHANGELOG.md
+https://github.com/rubenrichtering/RuleFlow/CHANGELOG.md
 
 ## Source and playground
 

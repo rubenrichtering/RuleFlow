@@ -1,5 +1,6 @@
 using System.Text;
 using RuleFlow.Abstractions.Formatting;
+using RuleFlow.Abstractions.Observability;
 
 namespace RuleFlow.Abstractions.Results;
 
@@ -11,6 +12,11 @@ public class RuleResult
     /// Root node of the execution tree.
     /// </summary>
     public RuleExecutionNode? Root { get; set; }
+
+    /// <summary>
+    /// Metrics collected during execution (only populated when observability is enabled).
+    /// </summary>
+    public RuleExecutionMetrics? Metrics { get; set; }
 
     public IEnumerable<string> AppliedRules =>
         Executions.Where(e => e.Matched).Select(e => e.RuleName);

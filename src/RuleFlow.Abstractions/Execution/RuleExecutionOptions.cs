@@ -1,3 +1,5 @@
+using RuleFlow.Abstractions.Observability;
+
 namespace RuleFlow.Abstractions.Execution;
 
 /// <summary>
@@ -29,5 +31,25 @@ public class RuleExecutionOptions<T>
     /// Default is true to maintain full explainability.
     /// </summary>
     public bool EnableExplainability { get; set; } = true;
+
+    /// <summary>
+    /// If true, enables lightweight observability callbacks and metrics collection.
+    /// Default is false for zero-overhead performance when not needed.
+    /// When enabled without a custom observer, a built-in InMemoryRuleObserver is used.
+    /// </summary>
+    public bool EnableObservability { get; set; } = false;
+
+    /// <summary>
+    /// If true, captures detailed timing (duration) for rules and overall execution.
+    /// Only has effect when EnableObservability is also true.
+    /// Default is false to avoid Stopwatch overhead.
+    /// </summary>
+    public bool EnableDetailedTiming { get; set; } = false;
+
+    /// <summary>
+    /// Optional custom observer to receive observability callbacks.
+    /// If not provided and EnableObservability is true, a built-in observer is used.
+    /// </summary>
+    public IRuleObserver<T>? Observer { get; set; }
 }
 

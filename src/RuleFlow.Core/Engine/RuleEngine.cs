@@ -1,8 +1,11 @@
+using System.Diagnostics;
 using System.Linq;
 using RuleFlow.Abstractions;
 using RuleFlow.Abstractions.Execution;
+using RuleFlow.Abstractions.Observability;
 using RuleFlow.Abstractions.Results;
 using RuleFlow.Core.Context;
+using RuleFlow.Core.Observability;
 using RuleFlow.Core.Rules;
 
 namespace RuleFlow.Core.Engine;
@@ -94,6 +97,13 @@ public class RuleEngine : IRuleEngine
         var result = new RuleResult();
         var executionState = new ExecutionState();
 
+        // Initialize observability runtime
+        var observabilityEnabled = options.EnableObservability;
+        var observabilityRuntime = new ObservabilityRuntime<T>(
+            options,
+            observabilityEnabled
+        );
+
         RuleExecutionNode? root = null;
         if (options.EnableExplainability)
         {
@@ -114,8 +124,12 @@ public class RuleEngine : IRuleEngine
             root,
             options,
             executionState,
-            groupPath: null
+            groupPath: null,
+            observabilityRuntime
         );
+
+        // Start observability timing if enabled
+        observabilityRuntime.StartTiming();
 
         await EvaluateInternalAsync(ruleSet, evalContext);
 
@@ -124,8 +138,22 @@ public class RuleEngine : IRuleEngine
             result.Root = root;
         }
 
+        // Complete observability and populate metrics
+        if (observabilityEnabled)
+        {
+            observabilityRuntime.CompleteTiming();
+            var summary = observabilityRuntime.GetSummary(result.Executions);
+            result.Metrics = summary.Metrics;
+
+            // Call final completion callback
+            SafeInvokeObserver(() => 
+                observabilityRuntime.Observer.OnExecutionCompleted(summary)
+            );
+        }
+
         return result;
     }
+
 
     /// <summary>
     /// SINGLE UNIFIED EXECUTION METHOD - The source of truth for all rule evaluation and execution.
@@ -185,6 +213,14 @@ public class RuleEngine : IRuleEngine
                 continue;
             }
 
+            // Observability hook: before rule evaluation
+            if (eval.ObservabilityRuntime.Enabled)
+            {
+                SafeInvokeObserver(() =>
+                    eval.ObservabilityRuntime.OnRuleEvaluating(rule.Name, eval.Input, eval.GroupPath)
+                );
+            }
+
             var matched = await rule.EvaluateAsync(eval.Input, eval.RuleContext);
             var execution = CreateExecutionRecord(rule, matched, eval.GroupPath);
 
@@ -204,7 +240,15 @@ public class RuleEngine : IRuleEngine
 
             if (matched)
             {
-                await ExecuteMatchedRuleAsync(
+                // Observability hook: rule matched
+                if (eval.ObservabilityRuntime.Enabled)
+                {
+                    SafeInvokeObserver(() =>
+                        eval.ObservabilityRuntime.OnRuleMatched(rule.Name, eval.Input, eval.GroupPath, rule.Reason)
+                    );
+                }
+
+                var actionCount = await ExecuteMatchedRuleAsync(
                     rule,
                     eval.Input,
                     eval.RuleContext,
@@ -212,6 +256,14 @@ public class RuleEngine : IRuleEngine
                     ruleNode,
                     eval.Options.EnableExplainability
                 );
+
+                // Observability hook: after rule execution
+                if (eval.ObservabilityRuntime.Enabled)
+                {
+                    SafeInvokeObserver(() =>
+                        eval.ObservabilityRuntime.OnRuleExecuted(rule.Name, eval.Input, eval.GroupPath, actionCount, true)
+                    );
+                }
             }
 
             if (
@@ -309,7 +361,7 @@ public class RuleEngine : IRuleEngine
         }
     }
 
-    private async Task ExecuteMatchedRuleAsync<T>(
+    private async Task<int> ExecuteMatchedRuleAsync<T>(
         IRule<T> rule,
         T input,
         IRuleContext context,
@@ -323,7 +375,7 @@ public class RuleEngine : IRuleEngine
             var actionExecutions = await ExecuteActionsWithTrackingAsync(rule, input, context);
             execution.Actions.AddRange(actionExecutions);
             ruleNode.Actions.AddRange(actionExecutions);
-            return;
+            return actionExecutions.Count;
         }
 
         // Explainability disabled: run actions without per-step ActionExecution allocations.
@@ -331,11 +383,12 @@ public class RuleEngine : IRuleEngine
         if (rule is Rule<T>)
         {
             await rule.ExecuteAsync(input, context);
-            return;
+            return 0; // No tracking when explainability disabled for Rule<T>
         }
 
         var trackedExecutions = await ExecuteActionsWithTrackingAsync(rule, input, context);
         execution.Actions.AddRange(trackedExecutions);
+        return trackedExecutions.Count;
     }
 
     private static bool ShouldStopAfterMatchedRule<T>(
@@ -388,6 +441,12 @@ public class RuleEngine : IRuleEngine
         var groupParentNode = groupNode ?? eval.ParentNode;
         var previousExecutionCount = eval.Result.Executions.Count;
         var childGroupPath = BuildGroupPath(eval.GroupPath, group.Name);
+
+        // Observability: track group traversal
+        if (eval.ObservabilityRuntime.Enabled)
+        {
+            eval.ObservabilityRuntime.IncrementGroupsTraversed();
+        }
 
         var childEval = eval.WithGroup(groupParentNode, childGroupPath);
         await EvaluateInternalAsync(group, childEval);
@@ -613,6 +672,22 @@ public class RuleEngine : IRuleEngine
             }
         }
     }
+
+    /// <summary>
+    /// Safely invokes an observer callback, catching and suppressing any exceptions
+    /// to ensure observability failures never break rule execution.
+    /// </summary>
+    private static void SafeInvokeObserver(Action observerAction)
+    {
+        try
+        {
+            observerAction.Invoke();
+        }
+        catch
+        {
+            // Silently catch observer exceptions to prevent observability from breaking execution
+        }
+    }
 }
 
 /// <summary>
@@ -635,7 +710,8 @@ internal sealed class EvaluationContext<T>
         RuleExecutionNode? parentNode,
         RuleExecutionOptions<T> options,
         ExecutionState executionState,
-        string? groupPath
+        string? groupPath,
+        ObservabilityRuntime<T> observabilityRuntime
     )
     {
         Input = input;
@@ -645,6 +721,7 @@ internal sealed class EvaluationContext<T>
         Options = options;
         ExecutionState = executionState;
         GroupPath = groupPath;
+        ObservabilityRuntime = observabilityRuntime;
     }
 
     public T Input { get; }
@@ -654,6 +731,7 @@ internal sealed class EvaluationContext<T>
     public RuleExecutionOptions<T> Options { get; }
     public ExecutionState ExecutionState { get; }
     public string? GroupPath { get; }
+    public ObservabilityRuntime<T> ObservabilityRuntime { get; }
 
     public EvaluationContext<T> WithGroup(RuleExecutionNode? parentNode, string groupPath)
     {
@@ -664,7 +742,153 @@ internal sealed class EvaluationContext<T>
             parentNode,
             Options,
             ExecutionState,
-            groupPath
+            groupPath,
+            ObservabilityRuntime
         );
+    }
+}
+
+/// <summary>
+/// Per-evaluation observability runtime state.
+/// Lightweight container for observer, timing, and metric tracking.
+/// Only allocates when observability is enabled.
+/// </summary>
+internal sealed class ObservabilityRuntime<T>
+{
+    private readonly bool _timingEnabled;
+    private Stopwatch? _stopwatch;
+    private DateTime? _startTime;
+    private int _groupsTraversed;
+
+    public IRuleObserver<T> Observer { get; }
+    public bool Enabled { get; }
+
+    public ObservabilityRuntime(RuleExecutionOptions<T> options, bool enabled)
+    {
+        Enabled = enabled;
+        Observer = options.Observer ?? new InMemoryRuleObserver<T>();
+        _timingEnabled = options.EnableDetailedTiming && enabled;
+        _groupsTraversed = 0;
+    }
+
+    public void StartTiming()
+    {
+        if (_timingEnabled)
+        {
+            _stopwatch = Stopwatch.StartNew();
+            _startTime = DateTime.UtcNow;
+        }
+    }
+
+    public void CompleteTiming()
+    {
+        _stopwatch?.Stop();
+    }
+
+    public void IncrementGroupsTraversed()
+    {
+        _groupsTraversed++;
+    }
+
+    public void OnRuleEvaluating<TInput>(string ruleName, TInput input, string? groupPath)
+    {
+        if (!Enabled) return;
+
+        SafeInvokeObserver(() =>
+            Observer.OnRuleEvaluating(new RuleEvaluationContext<T>
+            {
+                RuleName = ruleName,
+                Input = (T)(object)input!,
+                GroupPath = groupPath,
+                StartTime = _timingEnabled ? _startTime : null
+            })
+        );
+    }
+
+    public void OnRuleMatched<TInput>(string ruleName, TInput input, string? groupPath, string? reason)
+    {
+        if (!Enabled) return;
+
+        SafeInvokeObserver(() =>
+            Observer.OnRuleMatched(new RuleMatchContext<T>
+            {
+                RuleName = ruleName,
+                Input = (T)(object)input!,
+                GroupPath = groupPath,
+                Reason = reason,
+                DurationFromEvaluation = _timingEnabled ? TimeSpan.FromMilliseconds(_stopwatch?.ElapsedMilliseconds ?? 0) : null
+            })
+        );
+    }
+
+    public void OnRuleExecuted<TInput>(string ruleName, TInput input, string? groupPath, int actionsCount, bool executed)
+    {
+        if (!Enabled) return;
+
+        SafeInvokeObserver(() =>
+            Observer.OnRuleExecuted(new RuleExecutionContext<T>
+            {
+                RuleName = ruleName,
+                Input = (T)(object)input!,
+                GroupPath = groupPath,
+                ActionsExecutedCount = actionsCount,
+                Executed = executed,
+                TotalDuration = _timingEnabled ? _stopwatch?.Elapsed : null
+            })
+        );
+    }
+
+    public RuleExecutionSummary GetSummary(List<RuleExecution> executions)
+    {
+        var inMemoryObserver = Observer as InMemoryRuleObserver<T>;
+        
+        // Populate metrics from execution records
+        if (inMemoryObserver != null)
+        {
+            inMemoryObserver.SetTotalRulesEvaluated(executions.Count);
+            if (_timingEnabled && _stopwatch != null)
+            {
+                inMemoryObserver.SetTotalElapsedMilliseconds(_stopwatch.ElapsedMilliseconds);
+                inMemoryObserver.SetTimeBoundaries(_startTime, DateTime.UtcNow);
+            }
+        }
+
+        var matchedCount = executions.Count(e => e.Matched);
+        var actionsCount = executions.SelectMany(e => e.Actions).Count(a => a.Executed);
+        var stoppedEarly = executions.Any(e => e.StoppedProcessing);
+
+        var summary = new RuleExecutionSummary
+        {
+            TotalRulesEvaluated = executions.Count,
+            RulesMatched = matchedCount,
+            ActionsExecuted = actionsCount,
+            GroupsTraversed = _groupsTraversed,
+            ExecutionStopped = stoppedEarly,
+            TotalExecutionTime = _timingEnabled ? _stopwatch?.Elapsed : null,
+            Metrics = new RuleExecutionMetrics
+            {
+                TotalRulesEvaluated = executions.Count,
+                RulesMatched = matchedCount,
+                ActionsExecuted = actionsCount,
+                GroupsTraversed = _groupsTraversed,
+                TotalElapsedMilliseconds = _timingEnabled ? _stopwatch?.ElapsedMilliseconds : null,
+                StartedAt = _startTime,
+                CompletedAt = DateTime.UtcNow
+            }
+        };
+
+        return summary;
+    }
+
+    private static void SafeInvokeObserver(Action observerAction)
+    {
+        try
+        {
+            observerAction.Invoke();
+        }
+        catch
+        {
+            // Silently catch observer exceptions
+        }
     }
 }

@@ -38,6 +38,28 @@ Console.WriteLine(result.Explain());
 
 Register `IRuleEngine` and related services with `AddRuleFlow()`. See [ASP.NET Core integration](advanced/aspnet-integration).
 
+## Observability (optional)
+
+Enable observability to track metrics and monitor rule execution:
+
+```csharp
+var options = new RuleExecutionOptions<Order>
+{
+    EnableObservability = true,
+    EnableDetailedTiming = true
+};
+
+var result = engine.Evaluate(order, rules, options);
+
+if (result.Metrics != null)
+{
+    Console.WriteLine($"Rules matched: {result.Metrics.RulesMatched}");
+    Console.WriteLine($"Duration: {result.Metrics.TotalElapsedMilliseconds}ms");
+}
+```
+
+Observability has **zero overhead when disabled** and supports custom observers for logging, monitoring, and analytics. See [Observability](advanced/observability) for details.
+
 ## Run the playground
 
 From the repository root:
@@ -57,4 +79,5 @@ For rules whose logic is **authored as data** (JSON/UI/database), use structured
 - [Rules](concepts/rules) — conditions, actions, `ThenIf`, dynamic `ConditionNode`
 - [Rule sets](concepts/rulesets) — groups and ordering
 - [Explainability](concepts/explainability) — execution records and formatters
+- [Observability](advanced/observability) — metrics, custom observers, performance monitoring
 - [Dynamic conditions](advanced/dynamic-conditions) — JSON-friendly condition trees and nested paths
