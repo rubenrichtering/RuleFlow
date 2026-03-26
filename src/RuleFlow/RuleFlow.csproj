@@ -17,23 +17,31 @@
     <Version>$(Version)</Version>
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <IsPackable>true</IsPackable>
+    <IncludeReferencedProjects>true</IncludeReferencedProjects>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
   </PropertyGroup>
 
   <ItemGroup>
     <None Include="../../README.md" Pack="true" PackagePath="\" />
   </ItemGroup>
 
-  <ItemGroup>
-    <ProjectReference Include="..\RuleFlow.Abstractions\RuleFlow.Abstractions.csproj" />
-    <ProjectReference Include="..\RuleFlow.Core\RuleFlow.Core.csproj" />
-    <ProjectReference Include="..\RuleFlow.Extensions.DependencyInjection\RuleFlow.Extensions.DependencyInjection.csproj" />
-  </ItemGroup>
-
-  <!-- Non-packable project references are not emitted into the nupkg by default; ship all assemblies in one package. -->
+  <!-- Include referenced project outputs (DLLs and PDBs) in the package -->
   <ItemGroup>
     <None Include="../RuleFlow.Abstractions/bin/$(Configuration)/$(TargetFramework)/RuleFlow.Abstractions.dll" Pack="true" PackagePath="lib/$(TargetFramework)" />
+    <None Include="../RuleFlow.Abstractions/bin/$(Configuration)/$(TargetFramework)/RuleFlow.Abstractions.pdb" Pack="true" PackagePath="lib/$(TargetFramework)" />
     <None Include="../RuleFlow.Core/bin/$(Configuration)/$(TargetFramework)/RuleFlow.Core.dll" Pack="true" PackagePath="lib/$(TargetFramework)" />
+    <None Include="../RuleFlow.Core/bin/$(Configuration)/$(TargetFramework)/RuleFlow.Core.pdb" Pack="true" PackagePath="lib/$(TargetFramework)" />
     <None Include="../RuleFlow.Extensions.DependencyInjection/bin/$(Configuration)/$(TargetFramework)/RuleFlow.Extensions.DependencyInjection.dll" Pack="true" PackagePath="lib/$(TargetFramework)" />
+    <None Include="../RuleFlow.Extensions.DependencyInjection/bin/$(Configuration)/$(TargetFramework)/RuleFlow.Extensions.DependencyInjection.pdb" Pack="true" PackagePath="lib/$(TargetFramework)" />
   </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\RuleFlow.Abstractions\RuleFlow.Abstractions.csproj" PrivateAssets="All" />
+    <ProjectReference Include="..\RuleFlow.Core\RuleFlow.Core.csproj" PrivateAssets="All" />
+    <ProjectReference Include="..\RuleFlow.Extensions.DependencyInjection\RuleFlow.Extensions.DependencyInjection.csproj" PrivateAssets="All" />
+  </ItemGroup>
+
+
 
 </Project>

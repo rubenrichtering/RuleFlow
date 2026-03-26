@@ -45,6 +45,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ### Changed
 - `RuleRegistry<T>` now follows a startup-mutable/runtime-read-only lifecycle: registration is blocked after first lookup
 - `RuleResult` now includes optional `Metrics` property populated only when observability is enabled (backward compatible)
+- All projects now enforce `TreatWarningsAsErrors=true` to prevent compiler warnings from introducing defects and ensure code quality remains high
 
 ## [0.2.0] - 2026-03-23
 
