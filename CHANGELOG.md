@@ -4,6 +4,54 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - Unreleased
+
+### 🚀 Added
+- **AI condition resilience** — production-safe AI evaluation with timeout, failure strategy, caching, logging, and metrics
+- **`AiTimeout`** (`TimeSpan?`) on `RuleExecutionOptions<T>` — cancels AI evaluation after the specified duration and applies the failure strategy; no-op when null
+- **`AiFailureStrategy`** enum on `RuleExecutionOptions<T>` — `ReturnFalse` (default, safe) or `ReturnTrue`; applied on exception, timeout, or cancellation
+- **`EnableAiCaching`** (`bool`) on `RuleExecutionOptions<T>` — per-rule evaluation cache keyed on `prompt + serialized input`; prevents redundant AI calls for identical inputs within one rule
+- **`AiLogger`** (`IAiExecutionLogger?`) on `RuleExecutionOptions<T>` — optional audit/compliance logging hook with `OnEvaluating`, `OnEvaluated`, `OnFailure` callbacks
+- **`IAiExecutionLogger`** interface in `RuleFlow.Abstractions.Conditions` — fully optional; exceptions in logger implementations are suppressed
+- **`AiFailureStrategy`** enum in `RuleFlow.Abstractions.Conditions`
+- **AI observability metrics** in `RuleExecutionMetrics`:
+  - `AiEvaluations` — total AI conditions evaluated
+  - `AiFailures` — AI conditions that failed (exception, timeout, cancellation)
+  - `AiSkipped` — AI conditions skipped (AI disabled or no evaluator registered)
+  - `AiTotalDuration` — cumulative time spent in AI evaluations
+- **Engine dispatch improvement** — `RuleEngine` now routes all `Rule<T>` evaluations through `EvaluateWithOptionsAsync` / `EvaluateWithDebugAndOptionsAsync`, propagating AI execution options and metrics tracker through the entire pipeline
+- **Fluent debug tree for AI conditions** — `RuleEngine` now produces `DebugAiConditionLeaf` nodes in the explainability tree for fluent (`.WhenAI`) conditions (previously only produced for persistence-loaded rules)
+- **AI playground scenario** — `AiConditionsScenario` in console sample demonstrating real-world usage:
+  - Fraud detection (deterministic + AI combination)
+  - Invoice validation (AI-only condition)
+  - Support ticket classification (urgency routing)
+  - Vendor risk assessment (jurisdiction check with caching)
+  - Resilience demo (timeout with both failure strategies)
+
+### 🛡️ Safety
+- AI failures **never propagate exceptions** — all failure paths (exception, timeout, cancellation) are caught and resolved via `AiFailureStrategy`
+- Timeout uses `CancellationTokenSource.CreateLinkedTokenSource` to correctly compose with any outer cancellation token; `CancellationTokenSource` is always disposed
+- Logger exceptions are suppressed via `SafeInvokeLogger` — a failing logger never breaks rule execution
+
+### 📊 Observability
+- AI metrics populated in `RuleExecutionMetrics` when `EnableObservability = true`
+- Zero overhead when AI conditions are not used — `AiMetricsTracker` only allocated when observability is active
+- All four existing observer callbacks (`OnRuleEvaluating`, `OnRuleMatched`, `OnRuleExecuted`, `OnExecutionCompleted`) remain unchanged — no breaking changes to existing observers
+
+### 📚 Documentation
+- New AI Conditions section in `docs/advanced/ai-conditions.md`
+- `docs/advanced/execution-options.md` updated with AI-specific options
+
+### 🧪 Testing
+- 30 new Phase 4 tests in `AiPhase4Tests.cs` covering:
+  - Timeout (exceeded → ReturnFalse, ReturnTrue; does not throw; no timeout configured)
+  - Failure strategy (exception → ReturnFalse and ReturnTrue; all strategies never throw)
+  - Logging hooks (OnEvaluating, OnEvaluated, OnFailure; logger exceptions suppressed)
+  - Caching (disabled → evaluator called twice; enabled + same input → called once; different prompts → called separately)
+  - AI metrics via engine (evaluations count, failures count, skipped count, duration populated, zero when no AI, not populated when observability disabled)
+  - End-to-end engine integration (timeout respected, failure strategy via engine, pipeline never throws, logger called)
+  - `AiFailureStrategy` enum structure
+
 ## [0.3.2] - 2026-04-03
 
 ### Added

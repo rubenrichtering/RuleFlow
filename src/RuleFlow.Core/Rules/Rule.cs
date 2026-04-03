@@ -1,4 +1,9 @@
 using RuleFlow.Abstractions;
+using RuleFlow.Abstractions.Conditions;
+using RuleFlow.Abstractions.Debug;
+using RuleFlow.Abstractions.Execution;
+using RuleFlow.Core.Builders;
+using RuleFlow.Core.Conditions;
 
 namespace RuleFlow.Core.Rules;
 
@@ -27,6 +32,25 @@ public class Rule<T> : IRule<T>
     private Func<T, Task<bool>>? _asyncCondition;
     private Func<T, IRuleContext, Task<bool>>? _asyncConditionWithContext;
 
+    // Structured condition (from persistence/dynamic rules) — enables debug tree capture
+    private ConditionNode? _structuredConditionNode;
+    private ConditionEvaluator<T>? _structuredConditionEvaluator;
+
+    // Fluent-built condition tree (.WhenAI / .WhenGroup)
+    private ConditionNode? _fluentConditionNode;
+    private IAiConditionEvaluator<T>? _fluentAiEvaluator;
+    private bool _enableFluentAi;
+    private bool _hasExplicitLambdaCondition;
+
+    /// <summary>True when this rule was built with a structured condition node (e.g. from persistence).</summary>
+    internal bool HasStructuredCondition => _structuredConditionNode != null && _structuredConditionEvaluator != null;
+
+    /// <summary>True when this rule has a fluent-built condition tree (from .WhenAI or .WhenGroup).</summary>
+    internal bool HasFluentCondition => _fluentConditionNode != null;
+
+    /// <summary>The fluent condition tree built by .WhenAI / .WhenGroup (for inspection/testing).</summary>
+    internal ConditionNode? FluentConditionNode => _fluentConditionNode;
+
     private Rule(string name)
     {
         Name = name;
@@ -43,6 +67,7 @@ public class Rule<T> : IRule<T>
     {
         _condition = condition ?? throw new ArgumentNullException(nameof(condition));
         _conditionWithContext = null; // Clear context version
+        _hasExplicitLambdaCondition = true;
         return this;
     }
 
@@ -65,6 +90,111 @@ public class Rule<T> : IRule<T>
     {
         _asyncConditionWithContext = condition ?? throw new ArgumentNullException(nameof(condition));
         return this;
+    }
+
+    // ============ AI Condition Overloads ============
+
+    /// <summary>
+    /// Registers the AI evaluator used for <c>.WhenAI()</c> conditions on this rule.
+    /// </summary>
+    /// <param name="aiEvaluator">The AI evaluator implementation.</param>
+    /// <param name="enabled">
+    /// When <see langword="false"/>, AI conditions are skipped and evaluate to
+    /// <see langword="false"/>. Defaults to <see langword="true"/>.
+    /// </param>
+    public Rule<T> WithAiEvaluator(IAiConditionEvaluator<T> aiEvaluator, bool enabled = true)
+    {
+        _fluentAiEvaluator = aiEvaluator ?? throw new ArgumentNullException(nameof(aiEvaluator));
+        _enableFluentAi = enabled;
+        return this;
+    }
+
+    /// <summary>
+    /// Adds an AI condition with the given prompt.
+    /// The full input is passed to the AI evaluator as context.
+    /// When chained after <c>.When()</c>, both conditions must be satisfied (AND logic).
+    /// </summary>
+    public Rule<T> WhenAI(string prompt)
+    {
+        if (string.IsNullOrWhiteSpace(prompt))
+            throw new ArgumentException("Prompt cannot be null or empty.", nameof(prompt));
+
+        AddToFluentTree(new AiConditionNode { Prompt = prompt });
+        return this;
+    }
+
+    /// <summary>
+    /// Adds an AI condition with the given prompt and a focused sub-object projection
+    /// passed to the AI evaluator as context.
+    /// When chained after <c>.When()</c>, both conditions must be satisfied (AND logic).
+    /// </summary>
+    public Rule<T> WhenAI(string prompt, Func<T, object> inputSelector)
+    {
+        if (string.IsNullOrWhiteSpace(prompt))
+            throw new ArgumentException("Prompt cannot be null or empty.", nameof(prompt));
+        ArgumentNullException.ThrowIfNull(inputSelector);
+
+        AddToFluentTree(new AiConditionNode
+        {
+            Prompt = prompt,
+            InputSelector = input => inputSelector((T)input!)
+        });
+        return this;
+    }
+
+    /// <summary>
+    /// Adds a logical condition group (AND/OR) that can mix lambda and AI conditions.
+    /// </summary>
+    public Rule<T> WhenGroup(Action<ConditionGroupBuilder<T>> configure)
+    {
+        ArgumentNullException.ThrowIfNull(configure);
+
+        var builder = new ConditionGroupBuilder<T>();
+        configure(builder);
+        AddToFluentTree(builder.Build());
+        return this;
+    }
+
+    /// <summary>
+    /// Adds the given node to the fluent condition tree, AND-ing with existing nodes.
+    /// When a lambda condition from <c>.When()</c> was set, it is incorporated as the
+    /// first child of the AND group.
+    /// </summary>
+    private void AddToFluentTree(ConditionNode node)
+    {
+        if (_fluentConditionNode == null)
+        {
+            if (_hasExplicitLambdaCondition)
+            {
+                // Incorporate the existing lambda as first child
+                _fluentConditionNode = new ConditionGroup
+                {
+                    Operator = "AND",
+                    Conditions = [new LambdaConditionNode<T>(_condition), node]
+                };
+            }
+            else
+            {
+                _fluentConditionNode = node;
+            }
+        }
+        else
+        {
+            // AND the new node onto the existing fluent tree
+            if (_fluentConditionNode is ConditionGroup existingAnd &&
+                existingAnd.Operator.Equals("AND", StringComparison.OrdinalIgnoreCase))
+            {
+                existingAnd.Conditions.Add(node);
+            }
+            else
+            {
+                _fluentConditionNode = new ConditionGroup
+                {
+                    Operator = "AND",
+                    Conditions = [_fluentConditionNode, node]
+                };
+            }
+        }
     }
 
     // ============ Sync Action Overloads ============
@@ -277,6 +407,24 @@ public class Rule<T> : IRule<T>
         return this;
     }
 
+    /// <summary>
+    /// Configures this rule to use a structured <see cref="ConditionNode"/> tree evaluated by the provided
+    /// <see cref="ConditionEvaluator{T}"/>. Enables full condition debug tree capture at runtime.
+    /// The regular evaluation path uses short-circuit logic; the debug path evaluates all children.
+    /// </summary>
+    public Rule<T> WithStructuredCondition(ConditionNode conditionNode, ConditionEvaluator<T> evaluator)
+    {
+        ArgumentNullException.ThrowIfNull(conditionNode);
+        ArgumentNullException.ThrowIfNull(evaluator);
+
+        _structuredConditionNode = conditionNode;
+        _structuredConditionEvaluator = evaluator;
+
+        // Wire the regular (short-circuit) async evaluation path.
+        _asyncConditionWithContext = (input, ctx) => evaluator.EvaluateAsync(input, conditionNode, ctx);
+        return this;
+    }
+
     // ============ Execution Logic ============
 
     /// <summary>
@@ -299,13 +447,19 @@ public class Rule<T> : IRule<T>
     /// <summary>
     /// Asynchronously evaluates the rule condition against the input and context.
     /// Priority order:
-    /// 1. Context-based async condition
-    /// 2. Async condition
-    /// 3. Context-based sync condition
-    /// 4. Sync condition
+    /// 1. Fluent condition tree (.WhenAI / .WhenGroup)
+    /// 2. Context-based async condition
+    /// 3. Async condition
+    /// 4. Context-based sync condition
+    /// 5. Sync condition
     /// </summary>
     public async Task<bool> EvaluateAsync(T input, IRuleContext context)
     {
+        if (_fluentConditionNode != null)
+        {
+            var fluentEval = new FluentConditionEvaluator<T>(_fluentAiEvaluator, _enableFluentAi);
+            return await fluentEval.EvaluateAsync(input, _fluentConditionNode);
+        }
         if (_asyncConditionWithContext != null)
         {
             return await _asyncConditionWithContext(input, context);
@@ -360,4 +514,106 @@ public class Rule<T> : IRule<T>
     /// Returns the list of action steps for debugging/introspection.
     /// </summary>
     internal IReadOnlyList<ActionStep<T>> GetActionSteps() => _actionSteps;
+
+    /// <summary>
+    /// Evaluates the rule using execution options (AI timeout, failure strategy, caching, logger).
+    /// Used by the engine as the preferred evaluation path for <see cref="Rule{T}"/> instances.
+    /// Metrics are reported into <paramref name="aiMetrics"/> when provided.
+    /// </summary>
+    internal async Task<bool> EvaluateWithOptionsAsync(
+        T input,
+        IRuleContext context,
+        RuleExecutionOptions<T> options,
+        AiMetricsTracker? aiMetrics = null,
+        CancellationToken ct = default)
+    {
+        if (_fluentConditionNode != null)
+        {
+            var fluentEval = BuildFluentEvaluator(options, aiMetrics);
+            return await fluentEval.EvaluateAsync(input, _fluentConditionNode, ct);
+        }
+
+        // Fall through to existing paths
+        return await EvaluateAsync(input, context);
+    }
+
+    /// <summary>
+    /// Evaluates the rule with debug tree capture and execution options.
+    /// Covers both fluent and structured condition paths.
+    /// </summary>
+    internal async Task<bool> EvaluateWithDebugAndOptionsAsync(
+        T input,
+        IRuleContext context,
+        RuleExecutionOptions<T> options,
+        AiMetricsTracker? aiMetrics,
+        Action<DebugConditionNode?> onDebugTree,
+        CancellationToken ct = default)
+    {
+        if (_fluentConditionNode != null && _structuredConditionNode == null)
+        {
+            var fluentEval = BuildFluentEvaluator(options, aiMetrics);
+            var (fluentResult, fluentTree) = await fluentEval.EvaluateWithDebugAsync(input, _fluentConditionNode, ct);
+            onDebugTree(fluentTree);
+            return fluentResult;
+        }
+
+        if (_structuredConditionNode != null && _structuredConditionEvaluator != null)
+        {
+            var (result, tree) = await _structuredConditionEvaluator.EvaluateWithDebugAsync(
+                input, _structuredConditionNode, context, ct);
+            onDebugTree(tree);
+            return result;
+        }
+
+        var matched = await EvaluateAsync(input, context);
+        onDebugTree(null);
+        return matched;
+    }
+
+    private FluentConditionEvaluator<T> BuildFluentEvaluator(
+        RuleExecutionOptions<T> options,
+        AiMetricsTracker? aiMetrics)
+    {
+        return new FluentConditionEvaluator<T>(
+            _fluentAiEvaluator,
+            _enableFluentAi && options.EnableAiConditions,
+            options.AiTimeout,
+            options.AiFailureStrategy,
+            options.EnableAiCaching,
+            options.AiLogger,
+            aiMetrics);
+    }
+
+    /// <summary>
+    /// Evaluates the rule using its structured or fluent condition, capturing the full debug
+    /// condition tree via <paramref name="onDebugTree"/>. Falls back to the regular evaluation
+    /// path (without a debug tree) when no structured or fluent condition is configured.
+    /// Uses defaults for AI execution options (no timeout, ReturnFalse strategy, no caching).
+    /// </summary>
+    internal async Task<bool> EvaluateWithDebugAsync(
+        T input,
+        IRuleContext context,
+        Action<DebugConditionNode?> onDebugTree,
+        CancellationToken ct = default)
+    {
+        if (_fluentConditionNode != null && _structuredConditionNode == null)
+        {
+            var fluentEval = new FluentConditionEvaluator<T>(_fluentAiEvaluator, _enableFluentAi);
+            var (fluentResult, fluentTree) = await fluentEval.EvaluateWithDebugAsync(input, _fluentConditionNode, ct);
+            onDebugTree(fluentTree);
+            return fluentResult;
+        }
+
+        if (_structuredConditionNode != null && _structuredConditionEvaluator != null)
+        {
+            var (result, tree) = await _structuredConditionEvaluator.EvaluateWithDebugAsync(
+                input, _structuredConditionNode, context, ct);
+            onDebugTree(tree);
+            return result;
+        }
+
+        var matched = await EvaluateAsync(input, context);
+        onDebugTree(null);
+        return matched;
+    }
 }

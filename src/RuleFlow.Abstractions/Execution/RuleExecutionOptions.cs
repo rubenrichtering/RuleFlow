@@ -1,3 +1,4 @@
+using RuleFlow.Abstractions.Conditions;
 using RuleFlow.Abstractions.Observability;
 
 namespace RuleFlow.Abstractions.Execution;
@@ -7,6 +8,7 @@ namespace RuleFlow.Abstractions.Execution;
 /// </summary>
 public class RuleExecutionOptions<T>
 {
+
     /// <summary>
     /// If true, stops execution after the first rule matches.
     /// Rule.StopProcessing (rule-level) takes precedence over this setting.
@@ -51,5 +53,43 @@ public class RuleExecutionOptions<T>
     /// If not provided and EnableObservability is true, a built-in observer is used.
     /// </summary>
     public IRuleObserver<T>? Observer { get; set; }
+
+    /// <summary>
+    /// If true, AI-backed <see cref="AiConditionNode"/> conditions are evaluated via the
+    /// registered <see cref="IAiConditionEvaluator{T}"/>.
+    /// Default is <see langword="false"/> — AI conditions are skipped and resolve to
+    /// <see langword="false"/> when disabled, with zero overhead.
+    /// </summary>
+    public bool EnableAiConditions { get; set; } = false;
+
+    /// <summary>
+    /// Maximum time allowed for a single AI condition evaluation.
+    /// When the timeout elapses, the evaluation is cancelled and the
+    /// <see cref="AiFailureStrategy"/> is applied.
+    /// Default is <see langword="null"/> (no timeout).
+    /// </summary>
+    public TimeSpan? AiTimeout { get; set; }
+
+    /// <summary>
+    /// Determines the fallback value when an AI condition fails due to an
+    /// exception, timeout, or cancellation.
+    /// Default is <see cref="AiFailureStrategy.ReturnFalse"/> — the safe option.
+    /// </summary>
+    public AiFailureStrategy AiFailureStrategy { get; set; } = AiFailureStrategy.ReturnFalse;
+
+    /// <summary>
+    /// If true, AI condition results are cached within a single execution using
+    /// the prompt and serialized input as the cache key.
+    /// Prevents redundant AI calls for identical inputs within one rule evaluation.
+    /// Default is <see langword="false"/>.
+    /// </summary>
+    public bool EnableAiCaching { get; set; } = false;
+
+    /// <summary>
+    /// Optional logger for AI condition lifecycle events (evaluating, evaluated, failure).
+    /// Designed for audit logging, compliance tracking, and debugging.
+    /// No-op when <see langword="null"/>. Logger exceptions are suppressed.
+    /// </summary>
+    public IAiExecutionLogger? AiLogger { get; set; }
 }
 

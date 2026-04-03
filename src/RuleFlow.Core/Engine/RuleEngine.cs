@@ -4,6 +4,7 @@ using RuleFlow.Abstractions;
 using RuleFlow.Abstractions.Execution;
 using RuleFlow.Abstractions.Observability;
 using RuleFlow.Abstractions.Results;
+using RuleFlow.Core.Conditions;
 using RuleFlow.Core.Context;
 using RuleFlow.Core.Observability;
 using RuleFlow.Core.Rules;
@@ -221,7 +222,36 @@ public class RuleEngine : IRuleEngine
                 );
             }
 
-            var matched = await rule.EvaluateAsync(eval.Input, eval.RuleContext);
+            // Evaluate the rule: prefer the options-aware path for Rule<T> (supports AI features,
+            // timeout, failure strategy, logging, caching, metrics). Fall back to the interface
+            // contract for custom IRule<T> implementations.
+            bool matched;
+            RuleFlow.Abstractions.Debug.DebugConditionNode? conditionTree = null;
+
+            if (rule is Rule<T> coreRule)
+            {
+                var needsDebugTree = eval.Options.EnableExplainability
+                    && (coreRule.HasStructuredCondition || coreRule.HasFluentCondition);
+
+                if (needsDebugTree)
+                {
+                    matched = await coreRule.EvaluateWithDebugAndOptionsAsync(
+                        eval.Input, eval.RuleContext, eval.Options,
+                        eval.ObservabilityRuntime.AiMetrics,
+                        tree => conditionTree = tree);
+                }
+                else
+                {
+                    matched = await coreRule.EvaluateWithOptionsAsync(
+                        eval.Input, eval.RuleContext, eval.Options,
+                        eval.ObservabilityRuntime.AiMetrics);
+                }
+            }
+            else
+            {
+                matched = await rule.EvaluateAsync(eval.Input, eval.RuleContext);
+            }
+
             var execution = CreateExecutionRecord(rule, matched, eval.GroupPath);
 
             foreach (var kvp in rule.Metadata)
@@ -235,6 +265,7 @@ public class RuleEngine : IRuleEngine
             if (eval.Options.EnableExplainability && eval.ParentNode != null)
             {
                 ruleNode = CreateRuleNode(rule, matched);
+                ruleNode.ConditionTree = conditionTree;
                 eval.ParentNode.Children.Add(ruleNode);
             }
 
@@ -763,12 +794,21 @@ internal sealed class ObservabilityRuntime<T>
     public IRuleObserver<T> Observer { get; }
     public bool Enabled { get; }
 
+    /// <summary>
+    /// Tracks AI-specific metrics for this execution cycle.
+    /// Only allocated when observability is enabled — null otherwise.
+    /// </summary>
+    public AiMetricsTracker? AiMetrics { get; }
+
     public ObservabilityRuntime(RuleExecutionOptions<T> options, bool enabled)
     {
         Enabled = enabled;
         Observer = options.Observer ?? new InMemoryRuleObserver<T>();
         _timingEnabled = options.EnableDetailedTiming && enabled;
         _groupsTraversed = 0;
+
+        // Allocate AI tracker only when observability is active
+        AiMetrics = enabled ? new AiMetricsTracker() : null;
     }
 
     public void StartTiming()
@@ -873,7 +913,11 @@ internal sealed class ObservabilityRuntime<T>
                 GroupsTraversed = _groupsTraversed,
                 TotalElapsedMilliseconds = _timingEnabled ? _stopwatch?.ElapsedMilliseconds : null,
                 StartedAt = _startTime,
-                CompletedAt = DateTime.UtcNow
+                CompletedAt = DateTime.UtcNow,
+                AiEvaluations = AiMetrics?.AiEvaluations ?? 0,
+                AiFailures = AiMetrics?.AiFailures ?? 0,
+                AiSkipped = AiMetrics?.AiSkipped ?? 0,
+                AiTotalDuration = AiMetrics?.AiTotalDuration ?? TimeSpan.Zero,
             }
         };
 

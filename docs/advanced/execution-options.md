@@ -41,3 +41,41 @@ var result = engine.Evaluate(order, rules, options);
 ```
 
 Async overloads accept the same options type.
+
+---
+
+## AI Condition Options
+
+> These options require `EnableAiConditions = true`. See [AI Conditions](ai-conditions.md) for full documentation.
+
+### `EnableAiConditions` (default: `false`)
+
+Enables evaluation of `.WhenAI(...)` conditions. When `false`, all AI conditions resolve to `false` with zero overhead.
+
+### `AiTimeout` (default: `null`)
+
+Maximum duration for a single AI evaluation. Exceeded evaluations are cancelled and the `AiFailureStrategy` is applied.
+
+### `AiFailureStrategy` (default: `ReturnFalse`)
+
+Fallback value when AI evaluation fails. `ReturnFalse` is the safe default — a failing AI never triggers a rule match. `ReturnTrue` is appropriate when missing AI judgment should not block execution.
+
+### `EnableAiCaching` (default: `false`)
+
+Per-rule evaluation cache keyed on `prompt + serialized input`. Prevents duplicate AI calls for identical inputs within one rule evaluation.
+
+### `AiLogger` (default: `null`)
+
+Optional `IAiExecutionLogger` for audit logging. Callbacks: `OnEvaluating`, `OnEvaluated`, `OnFailure`. Logger exceptions are suppressed.
+
+```csharp
+var options = new RuleExecutionOptions<Order>
+{
+    EnableAiConditions = true,
+    AiTimeout = TimeSpan.FromSeconds(5),
+    AiFailureStrategy = AiFailureStrategy.ReturnFalse,
+    EnableAiCaching = true,
+    AiLogger = new MyAuditLogger(),
+    EnableObservability = true,  // Populates result.Metrics.AiEvaluations etc.
+};
+```

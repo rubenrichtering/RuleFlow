@@ -41,4 +41,31 @@ public class RuleExecutionMetrics
     /// Timestamp when execution completed (UTC).
     /// </summary>
     public DateTime? CompletedAt { get; set; }
+
+    // ── AI Condition Metrics ─────────────────────────────────────────────────
+
+    /// <summary>
+    /// Total number of AI condition evaluations attempted.
+    /// Only populated when <c>EnableObservability</c> is true.
+    /// </summary>
+    public int AiEvaluations { get; set; }
+
+    /// <summary>
+    /// Number of AI condition evaluations that failed (exception, timeout, or cancellation).
+    /// Only populated when <c>EnableObservability</c> is true.
+    /// </summary>
+    public int AiFailures { get; set; }
+
+    /// <summary>
+    /// Number of AI conditions that were skipped because AI was disabled or no evaluator
+    /// was registered.
+    /// Only populated when <c>EnableObservability</c> is true.
+    /// </summary>
+    public int AiSkipped { get; set; }
+
+    /// <summary>
+    /// Total cumulative time spent in AI evaluations.
+    /// Only populated when <c>EnableObservability</c> is true.
+    /// </summary>
+    public TimeSpan AiTotalDuration { get; set; }
 }

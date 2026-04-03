@@ -68,4 +68,11 @@ public class RuleExecutionNode
     /// Child nodes (rules and groups within this group).
     /// </summary>
     public List<RuleExecutionNode> Children { get; } = new();
+
+    /// <summary>
+    /// The evaluated condition debug tree for this rule.
+    /// Populated when structured condition nodes (including AI conditions) are used
+    /// with explainability enabled. Null for lambda-based conditions.
+    /// </summary>
+    public RuleFlow.Abstractions.Debug.DebugConditionNode? ConditionTree { get; set; }
 }
