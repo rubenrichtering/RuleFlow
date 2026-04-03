@@ -25,6 +25,9 @@ public static class ConditionValidator
                 foreach (var child in group.Conditions)
                     ValidateRecursive(child);
                 break;
+            case AiConditionNode ai:
+                ValidateAiNode(ai);
+                break;
             default:
                 throw new InvalidOperationException($"Unknown condition node type: {node.GetType().Name}");
         }
@@ -59,5 +62,11 @@ public static class ConditionValidator
             throw new InvalidOperationException(
                 $"Condition group Operator must be AND or OR (got '{group.Operator}').");
         }
+    }
+
+    private static void ValidateAiNode(AiConditionNode ai)
+    {
+        if (string.IsNullOrWhiteSpace(ai.Prompt))
+            throw new InvalidOperationException("AI condition node Prompt must not be null or empty.");
     }
 }

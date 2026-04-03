@@ -39,6 +39,25 @@ public static class RuleResultDebugExtensions
     }
 
     /// <summary>
+    /// Converts a <see cref="RuleExecutionDebugView"/> to a human-readable debug string.
+    /// </summary>
+    /// <param name="view">The debug view to format. Can be null.</param>
+    /// <returns>A formatted debug string, or empty string if view is null.</returns>
+    public static string ToDebugString(this RuleExecutionDebugView? view)
+    {
+        if (view is null) return string.Empty;
+        try
+        {
+            var formatter = new RuleExecutionDebugFormatter();
+            return formatter.Format(view);
+        }
+        catch
+        {
+            return string.Empty;
+        }
+    }
+
+    /// <summary>
     /// Converts a <see cref="RuleResult"/> to a structured <see cref="RuleExecutionDebugView"/> DTO.
     /// </summary>
     /// <param name="result">The rule execution result to map. Can be null.</param>

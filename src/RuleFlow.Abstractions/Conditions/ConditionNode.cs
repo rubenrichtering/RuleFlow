@@ -8,6 +8,7 @@ namespace RuleFlow.Abstractions.Conditions;
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "kind")]
 [JsonDerivedType(typeof(ConditionLeaf), "leaf")]
 [JsonDerivedType(typeof(ConditionGroup), "group")]
+[JsonDerivedType(typeof(AiConditionNode), "ai")]
 public abstract class ConditionNode
 {
 }

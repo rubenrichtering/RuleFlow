@@ -1,6 +1,7 @@
 using RuleFlow.Abstractions;
 using RuleFlow.Abstractions.Conditions;
 using RuleFlow.Abstractions.Persistence;
+using RuleFlow.Core.Conditions;
 using RuleFlow.Core.Rules;
 
 namespace RuleFlow.Core.Persistence;
@@ -49,7 +50,16 @@ public class RuleDefinitionMapper<T>
             }
 
             var tree = definition.Condition;
-            rule = rule.When((input, ctx) => _conditionEvaluator.Evaluate(input, tree, ctx));
+
+            // Use the concrete ConditionEvaluator<T> when available to enable debug tree capture.
+            if (_conditionEvaluator is ConditionEvaluator<T> concreteEvaluator)
+            {
+                rule = rule.WithStructuredCondition(tree, concreteEvaluator);
+            }
+            else
+            {
+                rule = rule.WhenAsync((input, ctx) => _conditionEvaluator.EvaluateAsync(input, tree, ctx));
+            }
         }
         else
         {

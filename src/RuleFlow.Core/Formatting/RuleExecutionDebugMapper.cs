@@ -72,7 +72,8 @@ internal static class RuleExecutionDebugMapper
         Reason = node.Reason,
         StoppedProcessing = node.StoppedProcessing,
         ActionsExecuted = node.Actions.Count(a => a.Executed),
-        Actions = node.Actions.Select(MapAction).ToList()
+        Actions = node.Actions.Select(MapAction).ToList(),
+        Condition = node.ConditionTree
     };
 
     // ── Flat-execution fallback (explainability disabled) ────────────────────
