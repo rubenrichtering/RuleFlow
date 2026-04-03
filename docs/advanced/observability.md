@@ -248,6 +248,30 @@ In observer callbacks, `GroupPath` shows the full hierarchical path:
 - "Approval" group rules: `GroupPath = "Approval"`
 - "Escalation" group rules: `GroupPath = "Approval/Escalation"`
 
+## Combining observability with the debug DTO
+
+When observability is enabled, `result.Metrics` is populated and flows directly into the `DebugMetrics` property of `RuleExecutionDebugView`. This means a single call captures both runtime metrics and a structured execution snapshot:
+
+```csharp
+var options = new RuleExecutionOptions<Order>
+{
+    EnableObservability = true,
+    EnableDetailedTiming = true
+};
+
+var result = engine.Evaluate(order, rules, options);
+
+// Human-readable tree (for logs / console)
+Console.WriteLine(result.ToDebugString());
+
+// Structured JSON (for dashboards / APIs / storage)
+Console.WriteLine(result.ToDebugJson());
+```
+
+The JSON output includes a `"metrics"` section only when observability is enabled; it is omitted entirely (`null` → omitted via `WhenWritingNull`) otherwise.
+
+See [Explainability — Debug DTO and JSON](../concepts/explainability#debug-dto-and-json-export) for the full DTO shape reference.
+
 ## Integration with Stop Processing
 
 When a rule has `StopIfMatched()` or `StopOnFirstMatch` is enabled, observability tracks this:

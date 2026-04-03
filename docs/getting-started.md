@@ -32,7 +32,9 @@ var engine = new RuleEngine();
 var result = engine.Evaluate(order, rules);
 
 // View execution results
-Console.WriteLine(result.Explain());  // Or use result.ToDebugString() for quick tree view
+Console.WriteLine(result.Explain());          // formatted text via IRuleResultFormatter
+Console.WriteLine(result.ToDebugString());    // human-readable tree with status markers
+Console.WriteLine(result.ToDebugJson());      // structured JSON for UIs and tooling
 
 // result properties: Executions (flat), Root (tree), AppliedRules (matched names), Metrics (if observability enabled)
 ```

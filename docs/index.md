@@ -11,6 +11,7 @@ RuleFlow is a **lightweight**, **developer-friendly** rule engine for .NET. You 
 - Small surface area: rules, rule sets, execution options—no ceremony
 - Deterministic execution with priorities, optional groups, and stop rules
 - **Explainability** built in: flat execution records, hierarchical trees, JSON and text formatters
+- **Debug DTO + JSON** — `ToDebugView()` / `ToDebugJson()` for structured, UI-friendly execution output
 - Async conditions and actions, runtime context, and optional JSON-backed definitions
 
 ## Key features
@@ -20,6 +21,7 @@ RuleFlow is a **lightweight**, **developer-friendly** rule engine for .NET. You 
 | **Lightweight** | Focused API; core types are easy to learn and test |
 | **Developer-friendly** | Fluent `Rule` / `RuleSet` builders; familiar C# lambdas |
 | **Explainability** | `RuleResult` with `RuleExecution`, `ActionExecution`, and formatters |
+| **Debug DTO + JSON** | `ToDebugView()` and `ToDebugJson()` for structured, UI-friendly execution output |
 | **Observability** | Optional metrics, custom observers, zero overhead when disabled |
 
 ## Documentation
@@ -29,7 +31,7 @@ RuleFlow is a **lightweight**, **developer-friendly** rule engine for .NET. You 
 | [Getting started](getting-started) | Install, minimal example, run the playground |
 | [Rules](concepts/rules) | `When`, `Then`, `ThenIf`, `Because`, priority |
 | [Rule sets](concepts/rulesets) | `RuleSet`, groups, ordering |
-| [Explainability](concepts/explainability) | `RuleExecution`, `ActionExecution`, formatters |
+| [Explainability](concepts/explainability) | `RuleExecution`, `ActionExecution`, debug string, debug DTO and JSON |
 | [Execution options](advanced/execution-options) | Stop on first match, filters, groups, explain toggle |
 | [Observability](advanced/observability) | Metrics, custom observers, performance monitoring |
 | [Persistence](advanced/persistence) | `RuleDefinition`, registry, JSON definitions |

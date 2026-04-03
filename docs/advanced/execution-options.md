@@ -26,6 +26,8 @@ When full paths are used, group selection is deterministic even if multiple bran
 
 When `false`, the detailed **`Root`** tree is not built, which can reduce overhead; rule executions can still be recorded. See **CASE 4**.
 
+> **Debug DTO fallback:** `ToDebugView()` and `ToDebugJson()` automatically fall back to the flat `Executions` list when `Root` is `null`, so both methods still produce valid output even when explainability is disabled.
+
 ## API shape
 
 ```csharp

@@ -4,19 +4,25 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.3.0] - Unreleased
+## [0.3.2] - 2026-04-03
 
 ### Added
+- **Debug DTO Pipeline** — structured, UI-friendly representation of any rule execution
+  - New `RuleExecutionDebugView` root DTO with nested `DebugGroup`, `DebugRule`, `DebugAction`, `DebugConditionNode` (leaf/group), and `DebugMetrics` types in `RuleFlow.Abstractions.Debug`
+  - Full group hierarchy with deterministic `FullPath` property (e.g. `"OrderApproval/Validation/HighValue"`) disambiguating groups with duplicate names at different levels
+  - `DebugConditionNode` is a polymorphic JSON type (`[JsonPolymorphic]`) with `"kind": "leaf"` / `"kind": "group"` discriminator — ready for direct UI rendering
+  - Mapper (`RuleExecutionDebugMapper`) as a pure transformation layer: uses execution tree when explainability is enabled, falls back gracefully to flat executions otherwise; never throws
+- **`ToDebugView()` extension** on `RuleResult` — returns a `RuleExecutionDebugView` DTO; null-safe and exception-safe
+- **`ToDebugJson()` extension** on `RuleResult` and `RuleExecutionDebugView` — deterministic, camelCase, indented JSON via `System.Text.Json`; returns `"{}"` on null or error (never throws)
 - **Console Debug String Formatter** (`ToDebugString()` extension method) for human-first rule execution output
   - Stable, deterministic debug output suitable for logs and console displays
   - Execution tree rendering with hierarchical structure visualization
-  - Condition tree rendering when `ConditionNode` metadata available (AND/OR groups with leaf expressions)
   - Status markers (✅ matched, ❌ not matched, 🛑 stopped) for clear visual feedback
   - Action execution tracking with arrow notation (→ executed, ⊘ skipped)
   - Automatic graceful degradation: tree → flat list when explainability unavailable
   - Execution metrics summary (rules evaluated, matched, elapsed time) when observability enabled
   - Null-safe handling with exception-safe wrapper
-  - New `DebugFormattingScenario` in console sample demonstrating simple and complex examples
+  - New `DebugFormattingScenario` in console sample demonstrating debug string and JSON outputs side by side
 - **Lightweight Observability Layer** for runtime insights without impacting performance
   - New `IRuleObserver<T>` interface for pluggable observability callbacks
   - Minimal context DTOs: `RuleEvaluationContext<T>`, `RuleMatchContext<T>`, `RuleExecutionContext<T>`
@@ -26,12 +32,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   - Observer callbacks invoked at: rule evaluation start, on match, after action execution, and completion
   - Full support for observability in async rules, nested groups, and stop-processing scenarios
   - 13 comprehensive observability tests covering disabled/enabled modes, callback ordering, exception safety, and metric accuracy
+- 20+ new debug pipeline tests: DTO mapping (3+ level nesting, duplicate group names, stop-processing, action counts, metrics), JSON validation (determinism, condition AND/OR trees with polymorphic discriminator, null-safe scenarios)
 - Regression tests for custom `IRule<T>` implementations to ensure actions execute in both explainability modes
 - Regression tests for nested `RuleSetDefinition` mapping to ensure deep groups are preserved
 - New IncludeGroups tests for duplicate nested group names (full-path filtering + legacy leaf-name compatibility)
 - Rule registry lifecycle tests covering startup registration, freeze-after-first-lookup behavior, and duplicate registration checks
 
 ### Improved
+- `RuleExecutionDebugFormatter` refactored to consume `RuleExecutionDebugView` DTO — `ToDebugString()` and `ToDebugJson()` now share a single mapping pipeline, eliminating duplicate traversal logic
 - IncludeGroups now supports deterministic full hierarchical paths (e.g., `Parent/Child`) with legacy leaf-name compatibility
 - Dynamic condition array conversion now avoids per-item converter allocations
 - Rule engine internals refactored into smaller helper methods for readability and maintainability
@@ -45,7 +53,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ### Changed
 - `RuleRegistry<T>` now follows a startup-mutable/runtime-read-only lifecycle: registration is blocked after first lookup
 - `RuleResult` now includes optional `Metrics` property populated only when observability is enabled (backward compatible)
-- All projects now enforce `TreatWarningsAsErrors=true` to prevent compiler warnings from introducing defects and ensure code quality remains high
+- All projects now enforce `TreatWarningsAsErrors=true` unconditionally (all build configurations) via `Directory.Build.props`; all projects also explicitly set `Nullable=enable` and `TreatWarningsAsErrors=true` for defence-in-depth
 
 ## [0.2.0] - 2026-03-23
 

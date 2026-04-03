@@ -66,6 +66,10 @@ public class DebugFormattingScenario : IScenario
         Console.WriteLine("Debug Output:");
         Console.WriteLine(result.ToDebugString());
 
+        // Display structured JSON debug output
+        Console.WriteLine("Debug JSON:");
+        Console.WriteLine(result.ToDebugJson());
+
         // Display state changes
         Console.WriteLine("State After Execution:");
         Console.WriteLine($"  RequiresApproval: {order.RequiresApproval}");
@@ -119,6 +123,10 @@ public class DebugFormattingScenario : IScenario
         // Display debug output with observability metrics
         Console.WriteLine("Debug Output:");
         Console.WriteLine(result.ToDebugString());
+
+        // Display structured JSON for UI/tooling consumers
+        Console.WriteLine("Debug JSON:");
+        Console.WriteLine(result.ToDebugJson());
 
         // Display final state
         Console.WriteLine("Final State:");
